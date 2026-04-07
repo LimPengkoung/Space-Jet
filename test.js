@@ -1,468 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SPACE JET — Arcade Shooter</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      background: #000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      font-family: 'Share Tech Mono', monospace;
-      overflow: hidden;
-      touch-action: none;
-      -webkit-tap-highlight-color: transparent;
-      position: fixed;
-      width: 100%;
-      height: 100%;
-    }
-
-    #gameWrapper {
-      position: relative;
-      width: 480px;
-      height: 720px;
-      max-width: 100vw;
-      max-height: 100vh;
-      overflow: hidden;
-    }
-
-    #gameCanvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-      image-rendering: pixelated;
-    }
-
-    #ui {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-
-    #hud {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-
-    .hud-block {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .hud-label {
-      font-family: 'Orbitron', monospace;
-      font-size: 9px;
-      color: rgba(0, 255, 200, 0.6);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-
-    .hud-value {
-      font-family: 'Orbitron', monospace;
-      font-size: 18px;
-      font-weight: 900;
-      color: #00ffc8;
-      text-shadow: 0 0 10px #00ffc8, 0 0 20px rgba(0, 255, 200, 0.4);
-    }
-
-    #healthBar {
-      display: flex;
-      gap: 3px;
-      align-items: center;
-    }
-
-    .heart {
-      font-size: 14px;
-      filter: drop-shadow(0 0 4px #ff4060);
-    }
-
-    .heart.empty {
-      filter: grayscale(1) opacity(0.3);
-    }
-
-    #bossHpBar {
-      position: absolute;
-      bottom: 60px;
-      left: 20px;
-      right: 20px;
-      display: none;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    #bossLabel {
-      font-family: 'Orbitron', monospace;
-      font-size: 10px;
-      color: #ff4060;
-      letter-spacing: 3px;
-      text-align: center;
-      text-shadow: 0 0 8px #ff4060;
-      animation: blink 1s infinite;
-    }
-
-    @keyframes blink {
-
-      0%,
-      100% {
-        opacity: 1
-      }
-
-      50% {
-        opacity: 0.5
-      }
-    }
-
-    #bossHpTrack {
-      width: 100%;
-      height: 10px;
-      background: rgba(255, 64, 96, 0.15);
-      border: 1px solid rgba(255, 64, 96, 0.5);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    #bossHpFill {
-      height: 100%;
-      background: linear-gradient(90deg, #ff1a40, #ff6080);
-      box-shadow: 0 0 8px #ff4060;
-      transition: width 0.1s;
-    }
-
-    #overlay {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(ellipse at center, rgba(0, 10, 20, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%);
-      z-index: 10;
-    }
-
-    #overlay.hidden {
-      display: none;
-    }
-
-    .title-line {
-      font-family: 'Orbitron', monospace;
-      font-weight: 900;
-      font-size: 42px;
-      color: #00ffc8;
-      text-shadow: 0 0 20px #00ffc8, 0 0 40px rgba(0, 255, 200, 0.5);
-      letter-spacing: 6px;
-      line-height: 1;
-    }
-
-    .title-sub {
-      font-family: 'Orbitron', monospace;
-      font-size: 11px;
-      color: rgba(0, 255, 200, 0.5);
-      letter-spacing: 8px;
-      margin-top: 6px;
-      margin-bottom: 40px;
-    }
-
-    .score-display {
-      font-family: 'Orbitron', monospace;
-      font-size: 28px;
-      font-weight: 700;
-      color: #ffcc00;
-      text-shadow: 0 0 12px #ffcc00;
-      margin-bottom: 8px;
-    }
-
-    .score-label {
-      font-size: 10px;
-      color: rgba(255, 204, 0, 0.6);
-      letter-spacing: 3px;
-      margin-bottom: 32px;
-    }
-
-    .btn {
-      font-family: 'Orbitron', monospace;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 4px;
-      color: #000;
-      background: #00ffc8;
-      border: none;
-      padding: 14px 40px;
-      cursor: pointer;
-      clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-      transition: all 0.15s;
-      pointer-events: all;
-      text-transform: uppercase;
-    }
-
-    .btn:hover {
-      background: #fff;
-      box-shadow: 0 0 20px #00ffc8;
-      transform: scale(1.05);
-    }
-
-    .controls-hint {
-      position: absolute;
-      bottom: 14px;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 10px;
-      color: rgba(0, 255, 200, 0.35);
-      letter-spacing: 2px;
-    }
-
-    #gunBarWrapper {
-      position: absolute;
-      bottom: 14px;
-      left: 14px;
-      right: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    #gunBarTop {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    #gunNameLabel {
-      font-family: 'Orbitron', monospace;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      text-shadow: 0 0 8px currentColor;
-      transition: color 0.3s;
-    }
-
-    #gunTimerText {
-      font-family: 'Orbitron', monospace;
-      font-size: 9px;
-      letter-spacing: 1px;
-      color: rgba(255, 255, 255, 0.5);
-    }
-
-    #gunTimerTrack {
-      width: 100%;
-      height: 7px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    #gunTimerFill {
-      height: 100%;
-      border-radius: 2px;
-      transition: background 0.3s;
-    }
-
-    #wave-announce {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-family: 'Orbitron', monospace;
-      font-size: min(22px, 5vw);
-      font-weight: 900;
-      color: #ffcc00;
-      text-shadow: 0 0 16px #ffcc00;
-      letter-spacing: 2px;
-      opacity: 0;
-      pointer-events: none;
-      text-align: center;
-      white-space: pre-wrap;
-      width: 90%;
-      transition: opacity 0.3s;
-      z-index: 5;
-    }
-
-    #fullscreenBtn {
-      font-family: 'Orbitron', monospace;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 2px;
-      color: #00ffc8;
-      background: rgba(0, 255, 200, 0.1);
-      border: 1px solid rgba(0, 255, 200, 0.3);
-      padding: 8px 16px;
-      cursor: pointer;
-      pointer-events: all;
-      margin-top: 14px;
-      text-transform: uppercase;
-      transition: all 0.15s;
-      display: none;
-    }
-
-    #fullscreenBtn:hover {
-      background: rgba(0, 255, 200, 0.2);
-      box-shadow: 0 0 12px rgba(0, 255, 200, 0.3);
-    }
-
-    .mobile-hint {
-      display: none;
-    }
-
-    #pauseBtnMain {
-      display: none;
-      position: absolute;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 255, 200, 0.1);
-      border: 1px solid rgba(0, 255, 200, 0.4);
-      color: #00ffc8;
-      padding: 6px 14px;
-      font-family: 'Orbitron', monospace;
-      font-size: 10px;
-      z-index: 15;
-      cursor: pointer;
-      pointer-events: all;
-      font-weight: 700;
-      letter-spacing: 2px;
-      border-radius: 2px;
-    }
-
-    @media (pointer: coarse),
-    (max-width: 600px) {
-      .desktop-hint {
-        display: none;
-      }
-
-      .mobile-hint {
-        display: inline;
-      }
-
-      #fullscreenBtn {
-        display: inline-block;
-      }
-
-      #pauseBtnMain.visible {
-        display: inline-block;
-        top: 60px;
-        left: 12px;
-        transform: none;
-      }
-    }
-
-    @media (max-width: 600px) {
-      .title-line {
-        font-size: 32px;
-        letter-spacing: 4px;
-      }
-
-      .title-sub {
-        font-size: 9px;
-        letter-spacing: 5px;
-      }
-
-      .btn {
-        font-size: 12px;
-        padding: 12px 32px;
-      }
-    }
-  </style>
-
-<body>
-  <div id="gameWrapper">
-    <canvas id="gameCanvas" width="480" height="720"></canvas>
-
-    <div id="ui">
-      <div id="hud">
-        <div class="hud-block">
-          <span class="hud-label">Score</span>
-          <span class="hud-value" id="scoreDisplay">0</span>
-        </div>
-        <div class="hud-block">
-          <span class="hud-label">Kills</span>
-          <span class="hud-value" id="killDisplay" style="color:#ff4060">0</span>
-        </div>
-        <div class="hud-block" style="align-items:center">
-          <span class="hud-label">Health</span>
-          <div id="healthBar"></div>
-        </div>
-        <div class="hud-block" style="align-items:flex-end">
-          <span class="hud-label">Wave</span>
-          <span class="hud-value" id="waveDisplay">1</span>
-        </div>
-      </div>
-
-      <div id="bossHpBar">
-        <div id="bossLabel">⚠ BOSS INCOMING ⚠</div>
-        <div id="bossHpTrack">
-          <div id="bossHpFill"></div>
-        </div>
-      </div>
-      <button id="pauseBtnMain" onclick="togglePause()">II PAUSE</button>
-      <div id="gunBarWrapper">
-        <div id="gunBarTop">
-          <span id="gunNameLabel" style="color:#00ffc8">✦ SINGLE SHOT</span>
-          <span id="gunTimerText">BASE GUN</span>
-        </div>
-        <div id="gunTimerTrack">
-          <div id="gunTimerFill" style="width:100%;background:#00ffc8"></div>
-        </div>
-      </div>
-
-    </div>
-
-    <div id="overlay">
-      <div class="title-line" id="titleLine1">SPACE</div>
-      <div class="title-line" id="titleLine2">JET</div>
-      <div class="title-sub" id="titleSub">ARCADE SHOOTER</div>
-      <div class="score-display" id="finalScore" style="display:none">0</div>
-      <div class="score-label" id="finalScoreLabel" style="display:none">FINAL SCORE</div>
-      <div class="score-display" id="finalKills" style="display:none;font-size:2em;margin-top:6px;color:#ff4060">0</div>
-      <div class="score-label" id="finalKillsLabel" style="display:none">ENEMIES DESTROYED</div>
-      <button class="btn" id="startBtn">LAUNCH</button>
-      <button class="btn" id="menuBtn"
-        style="display:none;background:transparent;color:#00ffc8;border:2px solid #00ffc8;margin-top:10px;font-size:11px;padding:10px 32px">⟵
-        MENU</button>
-      <button id="fullscreenBtn" onclick="toggleFullscreen()">⛶ FULLSCREEN</button>
-      <div class="controls-hint"><span class="desktop-hint">WASD / ARROWS — MOVE &nbsp;|&nbsp; AUTO-FIRE
-          ENABLED</span><span class="mobile-hint">TOUCH &amp; DRAG TO MOVE &nbsp;|&nbsp; AUTO-FIRE</span></div>
-    </div>
-
-    <div id="wave-announce"></div>
-
-    <div id="pauseOverlay"
-      style="display:none; position:absolute; inset:0; background:rgba(0,10,20,0.85); z-index:20; flex-direction:column; align-items:center; justify-content:center; pointer-events:all;">
-      <div class="title-line" style="font-size:32px; margin-bottom:30px;">PAUSED</div>
-      <button class="btn" onclick="togglePause()">RESUME</button>
-      <button class="btn"
-        style="margin-top:20px; background:transparent; color:#00ffc8; border:2px solid #00ffc8; padding:10px 32px; font-size:11px;"
-        onclick="togglePause(); returnToMenu();">QUIT TO MENU</button>
-    </div>
-  </div>
-
-  <script>
     // ─── CANVAS SETUP ──────────────────────────────────────────────
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -748,24 +284,9 @@
           if (player.invincible <= 0) {
             const dist = distToSegment(player.x, player.y, L.x, L.y, L.ex, L.ey);
             if (dist < (L.width * 0.6)) {
-              let dmg = 3;
-              if (player.shields > 0) {
-                const shieldDmg = Math.min(player.shields, dmg);
-                player.shields -= shieldDmg;
-                dmg -= shieldDmg;
-                player.shield = player.shields > 0;
-              }
-              if (dmg > 0) player.hp -= dmg;
-
-              player.invincible = 60;
-              playSfx(dmg > 0 ? 'playerHit' : 'shieldBreak');
-              spawnExplosion(player.x, player.y, 20);
-              updateHealthUI();
-
-              if (player.hp <= 0) {
-                player.hp = 0;
-                triggerGameOver();
-              }
+              player.shields = 0; player.shield = false;
+              player.hp = 0;
+              triggerGameOver();
             }
           }
         } else {
@@ -1197,7 +718,7 @@
     function startMusic(mode = 'regular') {
       if (musicPlaying && currentMusicMode === mode) return;
       if (musicPlaying) stopMusic(); // Hard cut
-
+      
       currentMusicMode = mode;
       musicPlaying = true;
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -1243,7 +764,7 @@
       if (mode === 'boss') melodyNotes = [0, 493.88, 0, 466.16, 0, 440.00, 0, 415.30]; // descending chromatic siren pattern
       else if (mode === 'boss2') melodyNotes = [0, 587.33, 0, 659.25, 0, 0, 587.33, 659.25]; // jumpy
       else if (mode === 'boss3') melodyNotes = [523.25, 0, 659.25, 0, 783.99, 0, 659.25, 0]; // ominous arpeggio
-
+      
       function scheduleMelody(startTime) {
         if (!musicPlaying) return;
         melodyNotes.forEach((freq, i) => {
@@ -1267,8 +788,8 @@
       // ── Arp / counter-melody ──
       let arpNotes = [164.81, 196.00, 246.94, 329.63, 246.94, 196.00];
       if (mode === 'boss') arpNotes = [440, 523.2, 587.3, 659.3, 587.3, 523.2, 440, 392]; // fast soaring arpeggio
-      else if (mode === 'boss2') arpNotes = [587.3, 698.46, 880, 1046.5, 880, 698.46, 587.3, 523.25];
-      else if (mode === 'boss3') arpNotes = [392, 493.88, 587.33, 783.99, 587.33, 493.88, 392, 329.63];
+      else if (mode === 'boss2') arpNotes = [587.3, 698.46, 880, 1046.5, 880, 698.46, 587.3, 523.25]; 
+      else if (mode === 'boss3') arpNotes = [392, 493.88, 587.33, 783.99, 587.33, 493.88, 392, 329.63]; 
 
       function scheduleArp(startTime) {
         if (!musicPlaying) return;
@@ -1601,9 +1122,9 @@
       if (type === 'sniper') { e.hp = 2; e.maxHp = 2; e.w = 28; e.h = 38; e.speed = 1.5 + wave * 0.08; e.score = 300; e.shootInterval = 12; e.burstMax = 2; e.burstCooldown = 160; }
       // ── Boss enemies ──
       // Cooldowns slashed and bursts increased for high-aggression
-      if (type === 'boss') { e.hp = 40 + wave * 20; e.maxHp = 40 + wave * 20; e.w = 90; e.h = 70; e.speed = 2.6; e.score = 2000; e.shootInterval = 14; e.burstMax = 6; e.burstCooldown = 75; }
-      if (type === 'boss2') { e.hp = 60 + wave * 25; e.maxHp = 60 + wave * 25; e.w = 100; e.h = 80; e.speed = 3.2; e.score = 3000; e.shootInterval = 10; e.burstMax = 8; e.burstCooldown = 65; }
-      if (type === 'boss3') { e.hp = 80 + wave * 30; e.maxHp = 80 + wave * 30; e.w = 110; e.h = 90; e.speed = 3.8; e.speed2 = 5.5; e.score = 5000; e.shootInterval = 8; e.burstMax = 10; e.burstCooldown = 55; }
+      if (type === 'boss') { e.hp = 40 + wave * 20; e.maxHp = 40 + wave * 20; e.w = 90; e.h = 70; e.speed = 2.6; e.score = 2000; e.shootInterval = 14; e.burstMax = 8; e.burstCooldown = 75; }
+      if (type === 'boss2') { e.hp = 60 + wave * 25; e.maxHp = 60 + wave * 25; e.w = 100; e.h = 80; e.speed = 3.2; e.score = 3000; e.shootInterval = 10; e.burstMax = 10; e.burstCooldown = 65; }
+      if (type === 'boss3') { e.hp = 80 + wave * 30; e.maxHp = 80 + wave * 30; e.w = 110; e.h = 90; e.speed = 3.8; e.speed2 = 5.5; e.score = 5000; e.shootInterval = 8; e.burstMax = 12; e.burstCooldown = 55; }
       enemies.push(e);
     }
 
@@ -2491,7 +2012,7 @@
       } else {
         waveTimer = 0;
         // During boss fights, periodically send small reinforcements
-        if (activeBoss) {
+        if (hasBoss) {
           bossReinforceTimer++;
           if (bossReinforceTimer >= BOSS_REINFORCE_INTERVAL) {
             bossReinforceTimer = 0;
@@ -2675,7 +2196,4 @@
     }
 
     document.getElementById('menuBtn').addEventListener('click', returnToMenu);
-  </script>
-</body>
-
-</html>
+  
