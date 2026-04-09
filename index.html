@@ -765,7 +765,7 @@
                 } else {
                   player.hp -= 3;
                 }
-                
+
                 player.invincible = 60;
                 playSfx('playerHit');
                 spawnExplosion(player.x, player.y, 20);
@@ -1511,7 +1511,10 @@
     function onBossHit(e) {
       // 3% chance to drop a gun when a boss is hit (only if no active gun)
       if (player.gunTimer === 0 && Math.random() < 0.03) {
-        const level = Math.floor(Math.random() * 4) + 2;
+        let level = Math.floor(Math.random() * 4) + 2;
+        if (level <= (player.baseGunLevel || 1)) {
+          level = (player.baseGunLevel || 1) + 1;
+        }
         gunDrops.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y, vy: 1.2, level, life: 1.0 });
       }
       // 3% chance to drop a heart when a boss is hit
