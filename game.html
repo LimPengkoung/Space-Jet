@@ -568,7 +568,7 @@
        peer = new Peer();
        peer.on('open', () => {
           document.getElementById('lobbyStatus').textContent = 'Connecting to Host...';
-          peerConn = peer.connect(roomId);
+          peerConn = peer.connect(roomId, { reliable: false });
           peerConn.on('open', () => {
              document.getElementById('lobbyStatus').textContent = 'Connected! Waiting for host...';
              setTimeout(() => {
@@ -578,6 +578,8 @@
           });
           peerConn.on('data', data => {
              if (data.t === 's') { applyNetworkState(data.p); }
+             else if (data.t === 'gO') { triggerGameOver(); }
+             else if (data.t === 'p') { togglePause(true); }
           });
           peerConn.on('error', err => {
               document.getElementById('lobbyStatus').textContent = 'Connection Error: ' + err;
@@ -637,9 +639,15 @@
     let gameRunning = false;
     let isPaused = false;
 
-    function togglePause() {
+    function togglePause(fromNet = false) {
       if (!gameRunning) return;
+      if (isOnline && !isHost && !fromNet) return; // Only host can pause initially
+      
       isPaused = !isPaused;
+
+      if (isOnline && isHost && peerConn && peerConn.open && !fromNet) {
+          peerConn.send({ t: 'p' });
+      }
 
       const pauseOverlay = document.getElementById('pauseOverlay');
       if (isPaused) {
@@ -1199,7 +1207,6 @@
           if (touchActive) {
             p.x += touchDX;
             p.y += touchDY;
-            touchDX = 0; touchDY = 0;
           }
         } else {
           if (isOnline && isHost) {
@@ -3184,8 +3191,6 @@
                    p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
                 });
             } catch(err) { console.error('Client send error:', err); }
-            touchDX = 0;
-            touchDY = 0;
         }
       }
 
@@ -3215,6 +3220,9 @@
     // ─── GAME OVER ─────────────────────────────────────────────────
     function triggerGameOver() {
       gameRunning = false;
+      if (isOnline && isHost && peerConn && peerConn.open) {
+          peerConn.send({ t: 'gO' });
+      }
       document.getElementById('pauseBtnMain').classList.remove('visible');
       stopMusic();
       players.forEach(p => spawnExplosion(p.x, p.y, 40, true));
