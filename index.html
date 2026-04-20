@@ -410,6 +410,7 @@
     <a href="#" class="nav-logo">SPACE JET</a>
     <ul class="nav-links">
       <li><a href="#mechanics">Mechanics</a></li>
+      <li><a href="#coop">Co-Op</a></li>
       <li><a href="#defenses">Defenses</a></li>
       <li><a href="#weapons">Weapons</a></li>
       <li><a href="#bosses">Bosses</a></li>
@@ -429,6 +430,7 @@
 
         <div class="hero-stats brand-font">
           <div class="stat-badge">INFINITE WAVES</div>
+          <div class="stat-badge highlight-pink" style="border-color: var(--pink); box-shadow: 0 0 10px rgba(255,64,96,0.2);">🌍 REAL-TIME CO-OP</div>
           <div class="stat-badge">EPIC BOSS FIGHTS</div>
           <div class="stat-badge">7 UNIQUE WEAPONS</div>
           <div class="stat-badge highlight-yellow"
@@ -501,6 +503,35 @@
               <span style="color: var(--text-muted); font-size: 0.95rem;">The engine is strictly locked to exactly 60
                 ticks per second. This guarantees bullet-hell movement remains flawlessly identical whether you play on
                 a 60Hz phone or a 144Hz desktop monitor!</span>
+            </div>
+          </li>
+        </ul>
+      </article>
+
+      <!-- Online Co-op -->
+      <article id="coop" class="card" style="border-color: var(--pink); box-shadow: 0 0 20px rgba(255,64,96,0.15);">
+        <h2><span class="icon">🌍</span> Online Co-Op Multiplayer</h2>
+        <p>Grab a friend and survive the bullet hell together! The game features a fully custom, peer-to-peer WebRTC networking engine built from scratch for frictionless real-time multiplayer.</p>
+        <ul style="list-style: none; display: flex; flex-direction: column; gap: 16px; margin-top: 24px; padding-left: 0;">
+          <li style="display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(255,64,96,0.1);">
+            <div style="font-size: 2.5rem; color: var(--pink); text-shadow: 0 0 15px var(--pink); width: 80px; text-align: center;">🔗</div>
+            <div>
+              <strong style="color: var(--pink); display: block; margin-bottom: 4px; font-size: 1.1rem;">Zero-Config Matchmaking</strong>
+              <span style="color: var(--text-muted); font-size: 0.95rem;">No servers, no logins. Just click "Online Co-Op", generate an invite link, and send it to your wingman to jump squarely into the action.</span>
+            </div>
+          </li>
+          <li style="display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(0,255,200,0.1);">
+            <div style="font-size: 2.5rem; color: var(--cyan); text-shadow: 0 0 15px var(--cyan-glow); width: 80px; text-align: center;">⚡</div>
+            <div>
+              <strong style="color: var(--cyan); display: block; margin-bottom: 4px; font-size: 1.1rem;">Host-Authoritative Sync</strong>
+              <span style="color: var(--text-muted); font-size: 0.95rem;">The Host handles all physics and hit-detection locally, streaming precise game state frames to the Client to prevent desynchronization.</span>
+            </div>
+          </li>
+          <li style="display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(255,238,64,0.1);">
+            <div style="font-size: 2.5rem; color: var(--yellow); text-shadow: 0 0 15px var(--yellow); width: 80px; text-align: center;">🤝</div>
+            <div>
+              <strong style="color: var(--yellow); display: block; margin-bottom: 4px; font-size: 1.1rem;">Shared Loot & Boss Fights</strong>
+              <span style="color: var(--text-muted); font-size: 0.95rem;">Health drops, weapon buffs, and intense boss fights are fully synchronized, turning single-player bullet hells into strategic coordinated assaults.</span>
             </div>
           </li>
         </ul>
