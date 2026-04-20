@@ -3159,25 +3159,31 @@
         collide();
         
         if (isOnline && peerConn && peerConn.open) {
-           peerConn.send({
-              t: 's',
-              p: {
-                 p: players, e: enemies, pb: playerBullets, eb: enemyBullets, el: enemyLasers, 
-                 gd: gunDrops, hp: heartPacks, sd: shieldDrops, ip: invinciblePacks,
-                 sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode },
-                 ne: netEvents
-              }
-           });
-           netEvents = [];
+           if (frameCount % 2 === 0) {
+               try {
+                   peerConn.send({
+                      t: 's',
+                      p: {
+                         p: players, e: enemies, pb: playerBullets, eb: enemyBullets, el: enemyLasers, 
+                         gd: gunDrops, hp: heartPacks, sd: shieldDrops, ip: invinciblePacks,
+                         sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode },
+                         ne: netEvents
+                      }
+                   });
+                   if (netEvents.length > 0) netEvents = [];
+               } catch(err) { console.error('Host send error:', err); }
+           }
         }
       } else {
         // Client Mode
         updateParticles(); // Update client-created particles visually
-        if (peerConn && peerConn.open) {
-            peerConn.send({
-               t: 'i',
-               p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
-            });
+        if (peerConn && peerConn.open && frameCount % 2 === 0) {
+            try {
+                peerConn.send({
+                   t: 'i',
+                   p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
+                });
+            } catch(err) { console.error('Client send error:', err); }
             touchDX = 0;
             touchDY = 0;
         }
