@@ -568,7 +568,7 @@
        peer = new Peer();
        peer.on('open', () => {
           document.getElementById('lobbyStatus').textContent = 'Connecting to Host...';
-          peerConn = peer.connect(roomId, { reliable: false });
+          peerConn = peer.connect(roomId);
           peerConn.on('open', () => {
              document.getElementById('lobbyStatus').textContent = 'Connected! Waiting for host...';
              setTimeout(() => {
