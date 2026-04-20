@@ -392,6 +392,7 @@
       }
     }
   </style>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
 <body>
   <div id="gameWrapper">
@@ -461,8 +462,9 @@
       <div class="score-label" id="finalKillsLabel" style="display:none">ENEMIES DESTROYED</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
         <button class="btn" id="startBtn">SOLO MODE</button>
-        <button class="btn" id="coopBtn" style="background:#ffcc00; color:#001122;">CO-OP MODE</button>
+        <button class="btn" id="coopBtn" style="background:#ffcc00; color:#001122;">LOCAL CO-OP</button>
       </div>
+      <button class="btn" id="onlineBtn" style="background:#ff4060; color:#fff; margin-top:14px;">ONLINE CO-OP</button>
       <button class="btn" id="menuBtn"
         style="display:none;background:transparent;color:#00ffc8;border:2px solid #00ffc8;margin-top:10px;font-size:11px;padding:10px 32px">⟵
         MENU</button>
@@ -481,9 +483,118 @@
         style="margin-top:20px; background:transparent; color:#00ffc8; border:2px solid #00ffc8; padding:10px 32px; font-size:11px;"
         onclick="togglePause(); returnToMenu();">QUIT TO MENU</button>
     </div>
+    
+    <div id="onlineLobby" style="display:none; position:absolute; inset:0; background:rgba(0,10,20,0.95); z-index:30; flex-direction:column; align-items:center; justify-content:center; pointer-events:all;">
+       <div class="title-line" style="font-size:24px; margin-bottom:20px;">ONLINE CO-OP</div>
+       <div id="lobbyStatus" style="color:#00ffc8; margin-bottom:20px; font-size:14px; text-align:center;">Initializing...</div>
+       <input type="text" id="inviteLink" readonly style="width:80%; padding:14px; text-align:center; margin-bottom:10px; background:#000; color:#fff; border:2px solid #00ffc8; font-family:monospace; display:none;" onclick="this.select()">
+       <button class="btn" id="copyLinkBtn" style="display:none; font-size:11px; padding:10px 20px;">COPY INVITE LINK</button>
+       <button class="btn" id="cancelOnlineBtn" style="margin-top:40px; background:transparent; color:#ff4060; border:2px solid #ff4060; padding:10px 32px; font-size:11px;" onclick="cancelOnline()">CANCEL</button>
+    </div>
   </div>
 
   <script>
+    // ─── MULTIPLAYER DEFINITIONS ─────────────────────────────────
+    let isHost = true;
+    let isOnline = false;
+    let peer = null;
+    let peerConn = null;
+    let netEvents = [];
+    let onlineP2Inputs = { keys: {}, jX: 0, jY: 0, tA: false, s: false };
+    
+    function cancelOnline() {
+       if (peer) { peer.destroy(); peer = null; }
+       if (peerConn) { peerConn.close(); peerConn = null; }
+       isOnline = false; isHost = true;
+       document.getElementById('onlineLobby').style.display = 'none';
+       document.getElementById('overlay').classList.remove('hidden');
+    }
+    
+    function initPeerHost() {
+       isHost = true;
+       isOnline = true;
+       document.getElementById('overlay').classList.add('hidden');
+       const lobby = document.getElementById('onlineLobby');
+       lobby.style.display = 'flex';
+       document.getElementById('lobbyStatus').textContent = 'Creating secure room...';
+       
+       peer = new Peer();
+       peer.on('open', id => {
+          const baseUrl = window.location.href.split('?')[0];
+          const link = baseUrl + '?room=' + id;
+          const input = document.getElementById('inviteLink');
+          input.value = link;
+          input.style.display = 'block';
+          const copyBtn = document.getElementById('copyLinkBtn');
+          copyBtn.style.display = 'inline-block';
+          copyBtn.onclick = () => { navigator.clipboard.writeText(link); copyBtn.textContent = 'COPIED!'; };
+          document.getElementById('lobbyStatus').textContent = 'Room created! Send link to P2.';
+       });
+       
+       peer.on('connection', conn => {
+          peerConn = conn;
+          document.getElementById('lobbyStatus').textContent = 'Player 2 connected! Starting...';
+          document.getElementById('inviteLink').style.display = 'none';
+          document.getElementById('copyLinkBtn').style.display = 'none';
+          
+          peerConn.on('data', data => {
+             if (data.t === 'i') {
+                 onlineP2Inputs = data.p;
+             }
+          });
+          
+          setTimeout(() => {
+             lobby.style.display = 'none';
+             coopMode = true;
+             startGame();
+          }, 1000);
+       });
+       peer.on('error', err => {
+          document.getElementById('lobbyStatus').textContent = 'Error: ' + err.message;
+       });
+    }
+
+    function initPeerClient(roomId) {
+       isHost = false;
+       isOnline = true;
+       coopMode = true;
+       document.getElementById('overlay').classList.add('hidden');
+       const lobby = document.getElementById('onlineLobby');
+       lobby.style.display = 'flex';
+       document.getElementById('lobbyStatus').textContent = 'Joining Room...';
+       document.getElementById('inviteLink').style.display = 'none';
+       document.getElementById('copyLinkBtn').style.display = 'none';
+       
+       peer = new Peer();
+       peer.on('open', () => {
+          document.getElementById('lobbyStatus').textContent = 'Connecting to Host...';
+          peerConn = peer.connect(roomId);
+          peerConn.on('open', () => {
+             document.getElementById('lobbyStatus').textContent = 'Connected! Waiting for host...';
+             setTimeout(() => {
+                 lobby.style.display = 'none';
+                 startGame();
+             }, 800);
+          });
+          peerConn.on('data', data => {
+             if (data.t === 's') { applyNetworkState(data.p); }
+          });
+          peerConn.on('error', err => {
+              document.getElementById('lobbyStatus').textContent = 'Connection Error: ' + err;
+          });
+       });
+       peer.on('error', err => {
+          document.getElementById('lobbyStatus').textContent = 'Error: ' + err.message;
+       });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+       const params = new URLSearchParams(window.location.search);
+       if (params.has('room')) {
+           initPeerClient(params.get('room'));
+       }
+    });
+
     // ─── CANVAS SETUP ──────────────────────────────────────────────
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -708,7 +819,10 @@
     // ─── PARTICLES ─────────────────────────────────────────────────
     const particles = [];
 
-    function spawnExplosion(x, y, count = 18, big = false) {
+    function spawnExplosion(x, y, count = 18, big = false, fromNet = false) {
+      if (isHost && isOnline && !fromNet) {
+        netEvents.push({ t: 'exp', x, y, c: count, b: big });
+      }
       const colors = ['#ff6020', '#ffcc00', '#ff3000', '#ffffff', '#ff9040'];
       for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -742,7 +856,10 @@
       }
     }
 
-    function spawnHitEffect(x, y) {
+    function spawnHitEffect(x, y, fromNet = false) {
+      if (isHost && isOnline && !fromNet) {
+        netEvents.push({ t: 'hit', x, y });
+      }
       for (let i = 0; i < 6; i++) {
         const angle = Math.random() * Math.PI * 2;
         particles.push({
@@ -1073,23 +1190,35 @@
         }
         
         let dx = 0, dy = 0;
-        // P1 uses WASD, P2 uses Arrows
         if (i === 0) {
-          if (keys['KeyA']) dx -= 1;
-          if (keys['KeyD']) dx += 1;
-          if (keys['KeyW']) dy -= 1;
-          if (keys['KeyS']) dy += 1;
-          // Also allow Touch controls to affect P1 ONLY
+          if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+          if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+          if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+          if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+          
           if (touchActive) {
             p.x += touchDX;
             p.y += touchDY;
-            if (i === 0) { touchDX = 0; touchDY = 0; }
+            touchDX = 0; touchDY = 0;
           }
         } else {
-          if (keys['ArrowLeft']) dx -= 1;
-          if (keys['ArrowRight']) dx += 1;
-          if (keys['ArrowUp']) dy -= 1;
-          if (keys['ArrowDown']) dy += 1;
+          if (isOnline && isHost) {
+            const op2 = onlineP2Inputs.keys || {};
+            if (op2['KeyA'] || op2['ArrowLeft']) dx -= 1;
+            if (op2['KeyD'] || op2['ArrowRight']) dx += 1;
+            if (op2['KeyW'] || op2['ArrowUp']) dy -= 1;
+            if (op2['KeyS'] || op2['ArrowDown']) dy += 1;
+            
+            if (onlineP2Inputs.tA) {
+               p.x += onlineP2Inputs.tX || 0;
+               p.y += onlineP2Inputs.tY || 0;
+            }
+          } else {
+            if (keys['ArrowLeft']) dx -= 1;
+            if (keys['ArrowRight']) dx += 1;
+            if (keys['ArrowUp']) dy -= 1;
+            if (keys['ArrowDown']) dy += 1;
+          }
         }
 
         if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
@@ -1220,7 +1349,10 @@
     // ─── SOUND EFFECTS ────────────────────────────────────────────
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    function playSfx(type) {
+    function playSfx(type, fromNet = false) {
+      if (isHost && isOnline && !fromNet) {
+        netEvents.push({ t: 'sfx', n: type });
+      }
       if (!audioCtx) return;
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const g = audioCtx.createGain();
@@ -2597,7 +2729,10 @@
       }
     }
 
-    function spawnHeartCollectEffect(x, y) {
+    function spawnHeartCollectEffect(x, y, fromNet = false) {
+      if (isHost && isOnline && !fromNet) {
+        netEvents.push({ t: 'hce', x, y });
+      }
       for (let i = 0; i < 10; i++) {
         const angle = Math.random() * Math.PI * 2;
         const spd = Math.random() * 3 + 1;
@@ -2794,7 +2929,10 @@
       ctx.restore();
     }
 
-    function showWaveAnnounce(text) {
+    function showWaveAnnounce(text, fromNet = false) {
+      if (isHost && isOnline && !fromNet) {
+        netEvents.push({ t: 'ann', m: text });
+      }
       const el = document.getElementById('wave-announce');
       el.textContent = text;
       el.style.opacity = '1';
@@ -2900,6 +3038,35 @@
     let bossReinforceTimer = 0;
     const BOSS_REINFORCE_INTERVAL = 300; // send reinforcements every 5 seconds
 
+    function applyNetworkState(st) {
+        players = st.p;
+        enemies = st.e;
+        playerBullets = st.pb;
+        enemyBullets = st.eb;
+        enemyLasers = st.el;
+        gunDrops = st.gd;
+        heartPacks = st.hp;
+        shieldDrops = st.sd;
+        invinciblePacks = st.ip;
+        
+        score = st.sc.s; kills = st.sc.k; wave = st.sc.w; waveTimer = st.sc.wt;
+        if (st.sc.c !== currentMapTheme) setMapTheme(st.sc.c);
+        if (st.sc.bm !== currentMusicMode) startMusic(st.sc.bm);
+        
+        for (const ev of st.ne) {
+            if (ev.t === 'sfx') playSfx(ev.n, true);
+            else if (ev.t === 'exp') spawnExplosion(ev.x, ev.y, ev.c, ev.b, true);
+            else if (ev.t === 'ann') showWaveAnnounce(ev.m, true);
+            else if (ev.t === 'hit') spawnHitEffect(ev.x, ev.y, true);
+            else if (ev.t === 'hce') spawnHeartCollectEffect(ev.x, ev.y, true);
+        }
+        
+        document.getElementById('scoreDisplay').textContent = score.toLocaleString();
+        document.getElementById('killDisplay').textContent = kills;
+        document.getElementById('waveDisplay').textContent = wave;
+        updateHealthUI();
+    }
+
     function gameLoop(timestamp) {
       if (!gameRunning) return;
       animId = requestAnimationFrame(gameLoop);
@@ -2935,60 +3102,86 @@
 
       drawBackground();
 
-      // Wave management — next wave triggers immediately after all enemies are killed
-      const activeBoss = enemies.find(e => e.type.startsWith('boss'));
-      if (activeBoss) {
-        if (currentMusicMode !== activeBoss.type) {
-          startMusic(activeBoss.type);
-        }
-      } else if (!activeBoss && currentMusicMode !== 'regular') {
-        startMusic('regular');
-      }
-      if (enemies.length === 0) {
-        bossReinforceTimer = 0;
-        waveTimer++;
-        if (waveTimer >= 90) {
-          waveTimer = 0;
-          wave++;
-          document.getElementById('waveDisplay').textContent = wave;
-          spawnWave();
-          if (wave % 5 === 0) { showBossHpBar(); playSfx('bossAlarm'); }
-        }
-      } else {
-        waveTimer = 0;
-        // During boss fights, periodically send small reinforcements
+      if (isHost) {
+        // Wave management — next wave triggers immediately after all enemies are killed
+        const activeBoss = enemies.find(e => e.type.startsWith('boss'));
         if (activeBoss) {
-          bossReinforceTimer++;
-          if (bossReinforceTimer >= BOSS_REINFORCE_INTERVAL) {
-            bossReinforceTimer = 0;
-            const count = 2 + Math.floor(wave / 5); // more reinforcements in later waves
-            for (let i = 0; i < Math.min(count, 5); i++) {
-              const x = 40 + Math.random() * (W - 80);
-              const y = -40 - i * 30;
-              spawnEnemy('small', x, y, Math.random() < 0.5 ? 'zigzag' : 'straight');
+          if (currentMusicMode !== activeBoss.type) {
+            startMusic(activeBoss.type);
+          }
+        } else if (!activeBoss && currentMusicMode !== 'regular') {
+          startMusic('regular');
+        }
+        if (enemies.length === 0) {
+          bossReinforceTimer = 0;
+          waveTimer++;
+          if (waveTimer >= 90) {
+            waveTimer = 0;
+            wave++;
+            document.getElementById('waveDisplay').textContent = wave;
+            spawnWave();
+            if (wave % 5 === 0) { showBossHpBar(); playSfx('bossAlarm'); }
+          }
+        } else {
+          waveTimer = 0;
+          // During boss fights, periodically send small reinforcements
+          if (activeBoss) {
+            bossReinforceTimer++;
+            if (bossReinforceTimer >= BOSS_REINFORCE_INTERVAL) {
+              bossReinforceTimer = 0;
+              const count = 2 + Math.floor(wave / 5); // more reinforcements in later waves
+              for (let i = 0; i < Math.min(count, 5); i++) {
+                const x = 40 + Math.random() * (W - 80);
+                const y = -40 - i * 30;
+                spawnEnemy('small', x, y, Math.random() < 0.5 ? 'zigzag' : 'straight');
+              }
+              showWaveAnnounce('⚡ REINFORCEMENTS!');
             }
-            showWaveAnnounce('⚡ REINFORCEMENTS!');
           }
         }
-      }
 
-      globalLaserTimer--;
-      if (globalLaserTimer <= 0 && gameRunning) {
-        globalLaserTimer = 500 + Math.random() * 600;
-        let tp = players.filter(p=>!p.dead).sort(() => Math.random() - 0.5)[0] || players[0];
-        const lx = tp.x + (Math.random() * 80 - 40);
-        spawnEnemyLaser(lx, -20, lx, H + 20, 100, 'random');
-      }
+        globalLaserTimer--;
+        if (globalLaserTimer <= 0 && gameRunning) {
+          globalLaserTimer = 500 + Math.random() * 600;
+          let tp = players.filter(p=>!p.dead).sort(() => Math.random() - 0.5)[0] || players[0];
+          const lx = tp.x + (Math.random() * 80 - 40);
+          spawnEnemyLaser(lx, -20, lx, H + 20, 100, 'random');
+        }
 
-      updatePlayer();
-      updateEnemies();
-      updateBullets();
-      updateParticles();
-      updateHeartPacks();
-      updateGunDrops();
-      updateShieldDrops();
-      updateInvinciblePacks();
-      collide();
+        updatePlayer();
+        updateEnemies();
+        updateBullets();
+        updateParticles();
+        updateHeartPacks();
+        updateGunDrops();
+        updateShieldDrops();
+        updateInvinciblePacks();
+        collide();
+        
+        if (isOnline && peerConn && peerConn.open) {
+           peerConn.send({
+              t: 's',
+              p: {
+                 p: players, e: enemies, pb: playerBullets, eb: enemyBullets, el: enemyLasers, 
+                 gd: gunDrops, hp: heartPacks, sd: shieldDrops, ip: invinciblePacks,
+                 sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode },
+                 ne: netEvents
+              }
+           });
+           netEvents = [];
+        }
+      } else {
+        // Client Mode
+        updateParticles(); // Update client-created particles visually
+        if (peerConn && peerConn.open) {
+            peerConn.send({
+               t: 'i',
+               p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
+            });
+            touchDX = 0;
+            touchDY = 0;
+        }
+      }
 
       // Draw order
       drawPlayerBullets();
@@ -3143,6 +3336,11 @@
       coopMode = true;
       requestMobileFullscreen();
       startGame();
+    });
+
+    document.getElementById('onlineBtn').addEventListener('click', () => {
+      requestMobileFullscreen();
+      initPeerHost();
     });
 
     // ─── RETURN TO MENU ──────────────────────────────────────────
