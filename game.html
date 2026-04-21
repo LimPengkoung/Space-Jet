@@ -396,7 +396,7 @@
 
 <body>
   <div id="gameWrapper">
-    <canvas id="gameCanvas" width="480" height="720"></canvas>
+    <canvas id="gameCanvas" width="480" height="720" tabindex="0"></canvas>
 
     <div id="ui">
       <div id="hud">
@@ -3367,9 +3367,12 @@
         if (peerConn && frameCount % 2 === 0) {
             try {
                 if (peerConn.open !== false) {
+                   // Send only truthy key entries — avoids bloat and serialization edge cases
+                   const activeKeys = {};
+                   for (const k in keys) { if (keys[k]) activeKeys[k] = true; }
                    peerConn.send({
                       t: 'i',
-                      p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
+                      p: { keys: activeKeys, tX: touchDX, tY: touchDY, tA: touchActive }
                    });
                 }
             } catch(err) { console.error('Client send error:', err); }
@@ -3507,6 +3510,7 @@
         startMusic();
       }
 
+      canvas.focus(); // Ensure canvas captures all keyboard events (Arrow keys etc.)
       animId = requestAnimationFrame(gameLoop);
     }
 
