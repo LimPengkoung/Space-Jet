@@ -502,6 +502,8 @@
     let netEvents = [];
     let onlineP2Inputs = { keys: {}, jX: 0, jY: 0, tA: false, s: false };
     let networkStateReady = false;
+    let hostSeq = 0;       // Host increments on every snapshot send
+    let clientLastSeq = 0; // Client tracks highest seq received to discard old packets
     
     function cancelOnline() {
        if (peer) { peer.destroy(); peer = null; }
@@ -569,7 +571,10 @@
        peer = new Peer();
        peer.on('open', () => {
           document.getElementById('lobbyStatus').textContent = 'Connecting to Host...';
-          peerConn = peer.connect(roomId);
+          // Use unreliable (UDP-like) DataChannel: no head-of-line blocking.
+          // With reliable=false, a lost packet is simply skipped — the next one
+          // arrives immediately instead of stalling behind retransmits.
+          peerConn = peer.connect(roomId, { reliable: false, serialization: 'json' });
           peerConn.on('open', () => {
              document.getElementById('lobbyStatus').textContent = 'Connected! Waiting for host...';
              setTimeout(() => {
@@ -578,7 +583,12 @@
              }, 800);
           });
           peerConn.on('data', data => {
-             if (data.t === 's') { applyNetworkState(data.p); }
+             if (data.t === 's') {
+                 // Reject out-of-order packets (can arrive scrambled on unreliable channel)
+                 if (data.seq !== undefined && data.seq <= clientLastSeq) return;
+                 if (data.seq !== undefined) clientLastSeq = data.seq;
+                 applyNetworkState(data.p);
+             }
              else if (data.t === 'gO') { triggerGameOver(); }
              else if (data.t === 'p') { togglePause(true); }
           });
@@ -3191,27 +3201,20 @@
         collide();
         
         if (isOnline && peerConn) {
-           if (frameCount % 3 === 0) {
+           if (frameCount % 2 === 0) {  // 30 snapshots/sec (was 20)
                try {
-                   // Slim each enemy to only the properties that change every frame.
-                   // Static props (w, h, speed, score, maxHp, etc.) are reconstructed
-                   // on the client side from the type string, reducing payload ~50%.
                    const slimEnemies = enemies.map(e => ({
                      _t: e.type, _pat: e.pattern,
                      x: e.x, y: e.y, hp: e.hp, timer: e.timer, phase: e.phase,
                      shootTimer: e.shootTimer, burstCount: e.burstCount,
                      burstCooldown: e.burstCooldown, dead: e.dead,
                      deathAnim: e.deathAnim || 0, hitFlash: e.hitFlash || 0,
-                     // Preserve boss-specific or rarely-set fields
                      laserCd: e.laserCd, burstMode: e.burstMode,
                      w: e.w, h: e.h, maxHp: e.maxHp, speed: e.speed, speed2: e.speed2,
                      shootInterval: e.shootInterval, burstMax: e.burstMax,
                    }));
-                   // Slim player bullets: only what drawPlayerBullets needs
                    const slimPB = playerBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, color: b.color, w: b.w, h: b.h }));
-                   // Slim enemy bullets: only what drawEnemyBullets needs
                    const slimEB = enemyBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, r: b.r }));
-                   // Slim player state
                    const slimPlayers = players.map(p => ({
                      x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, shields: p.shields,
                      gunLevel: p.gunLevel, baseGunLevel: p.baseGunLevel, gunTimer: p.gunTimer,
@@ -3219,8 +3222,10 @@
                      dead: p.dead, deathAnim: p.deathAnim || 0, laserTargetY: p.laserTargetY || 0,
                      shield: p.shield, shieldAnim: p.shieldAnim || 0,
                    }));
+                   hostSeq++;
                    peerConn.send({
                       t: 's',
+                      seq: hostSeq,  // Sequence number for out-of-order rejection
                       p: {
                          p: slimPlayers, e: slimEnemies, pb: slimPB, eb: slimEB,
                          el: enemyLasers, gd: gunDrops, hp: heartPacks,
