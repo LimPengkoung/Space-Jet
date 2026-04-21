@@ -2113,14 +2113,14 @@
       if (type === 'boss4') {
         // ── CARRIER FORTESS — massive battleship with destructible sub-parts ──
         e.hp = 100 + wave * 22; e.maxHp = e.hp;
-        e.w = 150; e.h = 120; e.speed = 1.4; e.score = 10000;
+        e.w = 200; e.h = 160; e.speed = 1.4; e.score = 10000;
         e.shootInterval = 20; e.burstMax = 3; e.burstCooldown = 120;
-        // 2 front turrets (rotate + aim at player)
-        e.turretL = { hp: 35, maxHp: 35, dead: false, angle: Math.PI / 2, shootTimer: 30 };
-        e.turretR = { hp: 35, maxHp: 35, dead: false, angle: Math.PI / 2, shootTimer: 0 };
-        // 2 rear cannons (fixed spread fire downward)
-        e.cannonL = { hp: 45, maxHp: 45, dead: false, shootTimer: 60 };
-        e.cannonR = { hp: 45, maxHp: 45, dead: false, shootTimer: 0 };
+        // 2 front turrets (rotate + aim at player) — 20 HP each
+        e.turretL = { hp: 20, maxHp: 20, dead: false, angle: Math.PI / 2, shootTimer: 30 };
+        e.turretR = { hp: 20, maxHp: 20, dead: false, angle: Math.PI / 2, shootTimer: 0 };
+        // 2 rear cannons (fixed spread fire downward) — 28 HP each
+        e.cannonL = { hp: 28, maxHp: 28, dead: false, shootTimer: 60 };
+        e.cannonR = { hp: 28, maxHp: 28, dead: false, shootTimer: 0 };
       }
 
       // ── CO-OP DIFFICULTY MULTIPLIER ──────────────────────────────────
@@ -2858,55 +2858,81 @@
       // Player bullets vs enemies
       for (let bi = playerBullets.length - 1; bi >= 0; bi--) {
         const b = playerBullets[bi];
-        let bulletConsumed = false;
-
-        // ── Boss4 sub-part collision (check BEFORE main body) ──────────
-        for (const e of enemies) {
-          if (e.dead || e.type !== 'boss4') continue;
-          const parts = [
-            { part: e.turretL, ox: -42*1.5, oy: -12*1.5, r: 24 },
-            { part: e.turretR, ox:  42*1.5, oy: -12*1.5, r: 24 },
-            { part: e.cannonL, ox: -52*1.5, oy:  32*1.5, r: 22 },
-            { part: e.cannonR, ox:  52*1.5, oy:  32*1.5, r: 22 },
-          ];
-          for (const { part, ox, oy, r } of parts) {
-            if (part.dead) continue;
-            const px = e.x + ox, py = e.y + oy;
-            if (Math.hypot(b.x - px, b.y - py) < r) {
-              playerBullets.splice(bi, 1);
-              bulletConsumed = true;
-              const dmg = b.type === 'rocket' ? 5 : b.type === 'homing_rocket' ? 2 : 1;
-              part.hp -= dmg;
-              e.hp   -= dmg * 0.5; // also chip main hull
-              e.hitFlash = 4;
-              e._lastHitOwner = b.owner;
-              spawnHitEffect(b.x, b.y);
-              playSfx('enemyHit');
-              if (part.hp <= 0) {
-                part.dead = true;
-                spawnExplosion(px, py, 30, false);
-                playSfx('enemyDie');
-              }
-              break;
-            }
-          }
-          if (bulletConsumed) break;
-        }
-        if (bulletConsumed) continue;
 
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
           const e = enemies[ei];
           if (e.dead) continue;
           if (Math.abs(b.x - e.x) < e.w / 2 && Math.abs(b.y - e.y) < e.h / 2) {
             playerBullets.splice(bi, 1);
-            if (b.type === 'rocket') {
+
+            // ── Boss4: check sub-part proximity on EVERY hit ──
+            if (e.type === 'boss4') {
+              const sc = 1.5;
+              const boss4Parts = [
+                { part: e.turretL, ox: -42*sc, oy: -12*sc, r: 30 },
+                { part: e.turretR, ox:  42*sc, oy: -12*sc, r: 30 },
+                { part: e.cannonL, ox: -52*sc, oy:  32*sc, r: 28 },
+                { part: e.cannonR, ox:  52*sc, oy:  32*sc, r: 28 },
+              ];
+              const dmg = b.type === 'rocket' ? 8 : b.type === 'homing_rocket' ? 5 : 3;
+              let hitPart = false;
+              for (const { part, ox, oy, r } of boss4Parts) {
+                if (part.dead) continue;
+                const px = e.x + ox, py = e.y + oy;
+                if (Math.hypot(b.x - px, b.y - py) < r) {
+                  part.hp -= dmg;
+                  part.hitFlash = true; // visual flash on the part
+                  hitPart = true;
+                  if (part.hp <= 0) {
+                    part.dead = true;
+                    part.hp = 0;
+                    spawnExplosion(px, py, 40, false);
+                    playSfx('enemyDie');
+                  }
+                  // Also chip hull
+                  e.hp -= 1;
+                  e.hitFlash = 4;
+                  e._lastHitOwner = b.owner;
+                  spawnHitEffect(b.x, b.y);
+                  playSfx('enemyHit');
+                  break;
+                }
+              }
+              if (!hitPart) {
+                // Hit the main hull directly
+                if (b.type === 'rocket') {
+                  spawnExplosion(b.x, b.y, 60, false); playSfx('enemyDie');
+                  for (const oe of enemies) {
+                    if (Math.abs(oe.x-b.x)<80 && Math.abs(oe.y-b.y)<80) {
+                      oe.hp -= 5; oe.hitFlash = 6; oe._lastHitOwner = b.owner;
+                      if (oe.type.startsWith('boss') && oe.hp > 0) onBossHit(oe);
+                    }
+                  }
+                } else if (b.type === 'homing_rocket') {
+                  spawnExplosion(b.x, b.y, 30, false); playSfx('enemyDie');
+                  for (const oe of enemies) {
+                    if (Math.abs(oe.x-b.x)<40 && Math.abs(oe.y-b.y)<40) {
+                      oe.hp -= 2; oe.hitFlash = 6; oe._lastHitOwner = b.owner;
+                      if (oe.type.startsWith('boss') && oe.hp > 0) onBossHit(oe);
+                    }
+                  }
+                } else {
+                  e.hp--; e.hitFlash = 6;
+                  e._lastHitOwner = b.owner;
+                  spawnHitEffect(b.x, b.y);
+                  if (e.hp > 0) onBossHit(e);
+                  playSfx('enemyHit');
+                }
+              }
+
+            } else if (b.type === 'rocket') {
               spawnExplosion(b.x, b.y, 60, false);
               playSfx('enemyDie');
               for (const oe of enemies) {
                 if (Math.abs(oe.x - b.x) < 80 && Math.abs(oe.y - b.y) < 80) {
                   oe.hp -= 5.0;
                   oe.hitFlash = 6;
-                  oe._lastHitOwner = b.owner; // tag for score attribution
+                  oe._lastHitOwner = b.owner;
                   if (oe.type.startsWith('boss') && oe.hp > 0) onBossHit(oe);
                 }
               }
@@ -2924,7 +2950,7 @@
             } else {
               e.hp--;
               e.hitFlash = 6;
-              e._lastHitOwner = b.owner; // tag for score attribution
+              e._lastHitOwner = b.owner;
               spawnHitEffect(b.x, b.y);
               if (e.type.startsWith('boss') && e.hp > 0) onBossHit(e);
               playSfx('enemyHit');
