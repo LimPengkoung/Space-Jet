@@ -854,6 +854,26 @@
                 V-eye slit and Hellfire core. Sweeping charge attacks and devastating spread fire.</span>
             </div>
           </li>
+          <li
+            style="display: flex; align-items: center; gap: 20px; background: rgba(0,0,0,0.4); padding: 12px 20px; border-radius: 8px; border: 1px solid rgba(0,170,255,0.2);">
+            <canvas id="enemyBoss4" width="150" height="150"
+              style="filter: drop-shadow(0 0 15px rgba(0,170,255,0.9)); margin-left: -20px; max-width: 120px; height: auto;"></canvas>
+            <div>
+              <strong style="color: #00aaff; display: block; margin-bottom: 4px; font-size: 1.1rem;">Iron
+                Colossus</strong>
+              <span style="color: var(--text-muted); font-size: 0.95rem;">A colossal carrier fortress bristling with
+                <strong style="color: #44aaff">2 rotating turrets</strong> and
+                <strong style="color: #ffaa44">2 rear cannons</strong> — all independently
+                destructible. Destroy the turrets to silence their aimed fire, take out the cannons to stop the
+                downward spread, then finish the hull. Spawns at Wave 20.
+              </span>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+                <span style="font-size:0.75rem;background:rgba(0,170,255,0.15);color:#44aaff;padding:3px 8px;border-radius:4px;border:1px solid rgba(0,170,255,0.3)">2 Turrets — 35 HP each</span>
+                <span style="font-size:0.75rem;background:rgba(255,136,0,0.15);color:#ffaa44;padding:3px 8px;border-radius:4px;border:1px solid rgba(255,136,0,0.3)">2 Cannons — 45 HP each</span>
+                <span style="font-size:0.75rem;background:rgba(255,0,51,0.1);color:#ff4466;padding:3px 8px;border-radius:4px;border:1px solid rgba(255,0,51,0.2)">10,000 pts</span>
+              </div>
+            </div>
+          </li>
         </ul>
       </article>
 
@@ -1042,6 +1062,46 @@
 
         cctx.fillStyle = '#ff0033';
         cctx.beginPath(); cctx.moveTo(-16, -hhb / 2 + 10); cctx.lineTo(16, -hhb / 2 + 10); cctx.lineTo(0, -hhb / 2 + 20); cctx.closePath(); cctx.fill();
+
+      } else if (type === 'boss4') {
+        // Carrier fortress hull
+        cctx.fillStyle = '#1a2a3a';
+        cctx.beginPath();
+        cctx.moveTo(0,-52); cctx.lineTo(20,-26); cctx.lineTo(22,24);
+        cctx.lineTo(0,44);  cctx.lineTo(-22,24); cctx.lineTo(-20,-26);
+        cctx.closePath(); cctx.fill();
+        // Wings
+        cctx.fillStyle = '#0f1e2e';
+        cctx.beginPath(); cctx.moveTo(-20,-8); cctx.lineTo(-62,8); cctx.lineTo(-65,36); cctx.lineTo(-44,43); cctx.lineTo(-20,24); cctx.closePath(); cctx.fill();
+        cctx.beginPath(); cctx.moveTo( 20,-8); cctx.lineTo( 62,8); cctx.lineTo( 65,36); cctx.lineTo( 44,43); cctx.lineTo( 20,24); cctx.closePath(); cctx.fill();
+        // Hull plates
+        cctx.fillStyle = '#263a50';
+        cctx.fillRect(-16,-36,32,7); cctx.fillRect(-12,-14,24,5); cctx.fillRect(-9,10,18,5);
+        // Engine glow
+        cctx.fillStyle = 'rgba(60,120,255,0.85)';
+        cctx.beginPath(); cctx.ellipse(-12,48,6,9,0,0,Math.PI*2); cctx.fill();
+        cctx.beginPath(); cctx.ellipse( 12,48,6,9,0,0,Math.PI*2); cctx.fill();
+        // Left turret
+        cctx.fillStyle = '#2a4a6a'; cctx.beginPath(); cctx.arc(-38,-10,13,0,Math.PI*2); cctx.fill();
+        cctx.fillStyle = '#0a1520'; cctx.beginPath(); cctx.arc(-38,-10,7,0,Math.PI*2); cctx.fill();
+        cctx.fillStyle = '#2a3a4a'; cctx.fillRect(-41,-28,6,18);
+        cctx.fillStyle = '#00aaff'; cctx.beginPath(); cctx.arc(-38,-10,3,0,Math.PI*2); cctx.fill();
+        // Right turret
+        cctx.fillStyle = '#2a4a6a'; cctx.beginPath(); cctx.arc( 38,-10,13,0,Math.PI*2); cctx.fill();
+        cctx.fillStyle = '#0a1520'; cctx.beginPath(); cctx.arc( 38,-10,7,0,Math.PI*2); cctx.fill();
+        cctx.fillStyle = '#2a3a4a'; cctx.fillRect( 35,-28,6,18);
+        cctx.fillStyle = '#00aaff'; cctx.beginPath(); cctx.arc( 38,-10,3,0,Math.PI*2); cctx.fill();
+        // Left cannon
+        cctx.fillStyle = '#1e3a50'; cctx.fillRect(-58,22,20,18);
+        cctx.fillStyle = '#3a5a7a'; cctx.fillRect(-52,8,7,15); cctx.fillRect(-52,4,7,5);
+        cctx.fillStyle = '#ff8800'; cctx.beginPath(); cctx.arc(-48,30,3,0,Math.PI*2); cctx.fill();
+        // Right cannon
+        cctx.fillStyle = '#1e3a50'; cctx.fillRect( 38,22,20,18);
+        cctx.fillStyle = '#3a5a7a'; cctx.fillRect( 45,8,7,15); cctx.fillRect( 45,4,7,5);
+        cctx.fillStyle = '#ff8800'; cctx.beginPath(); cctx.arc( 48,30,3,0,Math.PI*2); cctx.fill();
+        // Core
+        cctx.fillStyle = '#00aaff'; cctx.beginPath(); cctx.arc(0,-6,10,0,Math.PI*2); cctx.fill();
+        cctx.fillStyle = 'rgba(255,255,255,0.8)'; cctx.beginPath(); cctx.arc(0,-6,5,0,Math.PI*2); cctx.fill();
       } else if (type === 'speeder') {
         cctx.fillStyle = c.wing;
         cctx.beginPath(); cctx.moveTo(-18, 8); cctx.lineTo(-28, 22); cctx.lineTo(-14, 18); cctx.closePath(); cctx.fill();
@@ -1091,10 +1151,12 @@
     ENEMY_COLORS['boss'] = { body: '#5a6820', wing: '#3a4810', cockpit: '#c0d040' };
     ENEMY_COLORS['boss2'] = { body: '#803020', wing: '#601010', cockpit: '#ff8040' };
     ENEMY_COLORS['boss3'] = { body: '#502060', wing: '#380040', cockpit: '#cc44ff' };
+    ENEMY_COLORS['boss4'] = { body: '#1a2a3a', wing: '#0f1e2e', cockpit: '#00aaff' };
 
     renderEnemyDetail('enemyBoss1', 'boss');
     renderEnemyDetail('enemyBoss2', 'boss2');
     renderEnemyDetail('enemyBoss3', 'boss3');
+    renderEnemyDetail('enemyBoss4', 'boss4');
   </script>
 </body>
 
