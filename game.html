@@ -400,9 +400,20 @@
 
     <div id="ui">
       <div id="hud">
-        <div class="hud-block">
+        <!-- Solo mode: single shared score. Co-op: per-player scores shown side by side -->
+        <div class="hud-block" id="soloScoreBlock">
           <span class="hud-label">Score</span>
           <span class="hud-value" id="scoreDisplay">0</span>
+        </div>
+        <div class="hud-block" id="coopScoreBlock" style="display:none;gap:10px;flex-direction:row;align-items:center">
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <span class="hud-label" style="color:#44aaff">P1</span>
+            <span class="hud-value" id="p1ScoreDisplay" style="color:#44aaff;font-size:0.85em">0</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <span class="hud-label" style="color:#ffcc00">P2</span>
+            <span class="hud-value" id="p2ScoreDisplay" style="color:#ffcc00;font-size:0.85em">0</span>
+          </div>
         </div>
         <div class="hud-block">
           <span class="hud-label">Kills</span>
@@ -458,6 +469,12 @@
       <div class="title-sub" id="titleSub">ARCADE SHOOTER</div>
       <div class="score-display" id="finalScore" style="display:none">0</div>
       <div class="score-label" id="finalScoreLabel" style="display:none">FINAL SCORE</div>
+      <!-- Co-op per-player breakdown -->
+      <div id="finalCoopScores" style="display:none;width:100%;text-align:center;margin-bottom:6px">
+        <div style="color:#44aaff;font-size:1.4em;font-weight:bold" id="finalP1Score">P1: 0</div>
+        <div style="color:#ffcc00;font-size:1.4em;font-weight:bold;margin-top:4px" id="finalP2Score">P2: 0</div>
+        <div style="color:#aaa;font-size:0.8em;margin-top:6px" id="finalWinner"></div>
+      </div>
       <div class="score-display" id="finalKills" style="display:none;font-size:2em;margin-top:6px;color:#ff4060">0</div>
       <div class="score-label" id="finalKillsLabel" style="display:none">ENEMIES DESTROYED</div>
       <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
@@ -674,6 +691,19 @@
 
     let score = 0;
     let kills = 0;
+
+    function updateScoreHUD() {
+      if (coopMode) {
+        document.getElementById('soloScoreBlock').style.display  = 'none';
+        document.getElementById('coopScoreBlock').style.display  = 'flex';
+        document.getElementById('p1ScoreDisplay').textContent = players[0].score.toLocaleString();
+        document.getElementById('p2ScoreDisplay').textContent = players[1].score.toLocaleString();
+      } else {
+        document.getElementById('soloScoreBlock').style.display  = '';
+        document.getElementById('coopScoreBlock').style.display  = 'none';
+        document.getElementById('scoreDisplay').textContent      = score.toLocaleString();
+      }
+    }
     let wave = 1;
     let frameCount = 0;
     let globalLaserTimer = 400;
@@ -938,8 +968,8 @@
       playSfx('laserCharge');
     }
 
-    function spawnPlayerBullet(x, y, vx = 0, vy = -24, type = 'normal', color = '#00ffc8') {
-      playerBullets.push({ x, y, vx, vy, w: 4, h: 14, type, color });
+    function spawnPlayerBullet(x, y, vx = 0, vy = -24, type = 'normal', color = '#00ffc8', owner = 0) {
+      playerBullets.push({ x, y, vx, vy, w: 4, h: 14, type, color, owner });
     }
 
     function spawnEnemyBullet(x, y, vx, vy, type = 'normal') {
@@ -1147,6 +1177,7 @@
         x: W / 2 - 40, y: H - 100,
         w: 36, h: 44, speed: 9,
         hp: 6, maxHp: 6,
+        score: 0, kills: 0,
         shootTimer: 0, shootInterval: 14,
         invincible: 0, thrustAnim: 0, bankAngle: 0,
         gunLevel: 1, baseGunLevel: 1, gunTimer: 0,
@@ -1158,6 +1189,7 @@
         x: W / 2 + 40, y: H - 100,
         w: 36, h: 44, speed: 9,
         hp: 6, maxHp: 6,
+        score: 0, kills: 0,
         shootTimer: 0, shootInterval: 14,
         invincible: 0, thrustAnim: 0, bankAngle: 0,
         gunLevel: 1, baseGunLevel: 1, gunTimer: 0,
@@ -1291,6 +1323,7 @@
     function firePlayerGuns(p) {
       if (p.dead) return;
       const gl = p.gunLevel;
+      const owner = players.indexOf(p); // 0 for P1, 1 for P2
       if (gl === 7) {
         playSfx('shootHoming');
       } else if (gl === 6) {
@@ -1307,30 +1340,30 @@
         if (frameCount % 6 === 0) playSfx('shoot');
       }
       const x = p.x, y = p.y - p.h / 2;
-      const bulletColor = p.color; // Use player distinctive color
+      const bulletColor = p.color;
       if (gl === 1) {
-        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor);
+        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor, owner);
       } else if (gl === 2) {
-        spawnPlayerBullet(x - 10, y, 0, -24, 'normal', bulletColor);
-        spawnPlayerBullet(x + 10, y, 0, -24, 'normal', bulletColor);
+        spawnPlayerBullet(x - 10, y, 0, -24, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x + 10, y, 0, -24, 'normal', bulletColor, owner);
       } else if (gl === 3) {
-        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor);
-        spawnPlayerBullet(x - 10, y, -2.5, -23.8, 'normal', bulletColor);
-        spawnPlayerBullet(x + 10, y, 2.5, -23.8, 'normal', bulletColor);
+        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x - 10, y, -2.5, -23.8, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x + 10, y, 2.5, -23.8, 'normal', bulletColor, owner);
       } else if (gl === 4) {
         // Continuous beam handles own collision natively
       } else if (gl === 5) {
-        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor);
-        spawnPlayerBullet(x - 12, y, -2.5, -23.8, 'normal', bulletColor);
-        spawnPlayerBullet(x + 12, y, 2.5, -23.8, 'normal', bulletColor);
-        spawnPlayerBullet(x - 22, y, -5.0, -23.5, 'normal', bulletColor);
-        spawnPlayerBullet(x + 22, y, 5.0, -23.5, 'normal', bulletColor);
+        spawnPlayerBullet(x, y, 0, -24, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x - 12, y, -2.5, -23.8, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x + 12, y, 2.5, -23.8, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x - 22, y, -5.0, -23.5, 'normal', bulletColor, owner);
+        spawnPlayerBullet(x + 22, y, 5.0, -23.5, 'normal', bulletColor, owner);
       } else if (gl === 6) {
-        spawnPlayerBullet(x - 14, y, 0, -5, 'rocket', bulletColor);
-        spawnPlayerBullet(x + 14, y, 0, -5, 'rocket', bulletColor);
+        spawnPlayerBullet(x - 14, y, 0, -5, 'rocket', bulletColor, owner);
+        spawnPlayerBullet(x + 14, y, 0, -5, 'rocket', bulletColor, owner);
       } else if (gl === 7) {
-        spawnPlayerBullet(x - 12, y, -2, -5, 'homing_rocket', bulletColor);
-        spawnPlayerBullet(x + 12, y, 2, -5, 'homing_rocket', bulletColor);
+        spawnPlayerBullet(x - 12, y, -2, -5, 'homing_rocket', bulletColor, owner);
+        spawnPlayerBullet(x + 12, y, 2, -5, 'homing_rocket', bulletColor, owner);
       }
     }
 
@@ -2586,6 +2619,7 @@
                 if (Math.abs(oe.x - b.x) < 80 && Math.abs(oe.y - b.y) < 80) {
                   oe.hp -= 5.0;
                   oe.hitFlash = 6;
+                  oe._lastHitOwner = b.owner; // tag for score attribution
                   if (oe.type.startsWith('boss') && oe.hp > 0) onBossHit(oe);
                 }
               }
@@ -2596,12 +2630,14 @@
                 if (Math.abs(oe.x - b.x) < 40 && Math.abs(oe.y - b.y) < 40) {
                   oe.hp -= 2.0;
                   oe.hitFlash = 6;
+                  oe._lastHitOwner = b.owner;
                   if (oe.type.startsWith('boss') && oe.hp > 0) onBossHit(oe);
                 }
               }
             } else {
               e.hp--;
               e.hitFlash = 6;
+              e._lastHitOwner = b.owner; // tag for score attribution
               spawnHitEffect(b.x, b.y);
               if (e.type.startsWith('boss') && e.hp > 0) onBossHit(e);
               playSfx('enemyHit');
@@ -2614,9 +2650,14 @@
       for (let ei = enemies.length - 1; ei >= 0; ei--) {
         const e = enemies[ei];
         if (e.hp <= 0 && !e.dead) {
-          score += e.score;
+          // Credit score & kill to whoever last dealt damage (tracked via e._lastHitOwner)
+          const ownerIdx = (e._lastHitOwner !== undefined) ? e._lastHitOwner : 0;
+          const scorer = players[ownerIdx] || players[0];
+          scorer.score += e.score;
+          scorer.kills++;
+          score += e.score; // shared total (used for solo display & network sync compat)
           kills++;
-          document.getElementById('scoreDisplay').textContent = score;
+          updateScoreHUD();
           document.getElementById('killDisplay').textContent = kills;
           if (!tryDropGun(e.x, e.y)) {
             if (!tryDropHeartPack(e.x, e.y)) {
@@ -3183,6 +3224,10 @@
         syncArray(invinciblePacks, st.ip);
         
         score = st.sc.s; kills = st.sc.k; wave = st.sc.w; waveTimer = st.sc.wt;
+        // Sync per-player scores that were computed on the host
+        if (st.sc.p1s !== undefined) { players[0].score = st.sc.p1s; players[0].kills = st.sc.p1k || 0; }
+        if (st.sc.p2s !== undefined) { players[1].score = st.sc.p2s; players[1].kills = st.sc.p2k || 0; }
+        updateScoreHUD();
         if (st.sc.c !== currentMapTheme) setMapTheme(st.sc.c);
         if (st.sc.bm !== currentMusicMode) startMusic(st.sc.bm);
         
@@ -3354,7 +3399,8 @@
                          p: slimPlayers, e: slimEnemies, pb: slimPB, eb: slimEB,
                          el: enemyLasers, gd: gunDrops, hp: heartPacks,
                          sd: shieldDrops, ip: invinciblePacks,
-                         sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode },
+                         sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode,
+                               p1s: players[0].score, p2s: players[1].score, p1k: players[0].kills, p2k: players[1].kills },
                          ne: netEvents
                       }
                    });
@@ -3477,6 +3523,18 @@
         document.getElementById('finalKills').style.display = 'block';
         document.getElementById('finalKillsLabel').style.display = 'block';
         document.getElementById('finalKills').textContent = kills;
+
+        if (coopMode) {
+          // Show per-player score breakdown
+          document.getElementById('finalCoopScores').style.display = 'block';
+          document.getElementById('finalP1Score').textContent = 'P1 — ' + players[0].score.toLocaleString() + ' (' + players[0].kills + ' kills)';
+          document.getElementById('finalP2Score').textContent = 'P2 — ' + players[1].score.toLocaleString() + ' (' + players[1].kills + ' kills)';
+          const winner = players[0].score > players[1].score ? '🏆 Player 1 wins the score!' :
+                         players[1].score > players[0].score ? '🏆 Player 2 wins the score!' : '🤝 It\'s a tie!';
+          document.getElementById('finalWinner').textContent = winner;
+        } else {
+          document.getElementById('finalCoopScores').style.display = 'none';
+        }
       }, 1200);
     }
 
@@ -3484,8 +3542,13 @@
     function startGame() {
       // Reset
       score = 0; kills = 0; wave = 1; frameCount = 0; waveTimer = 0;
+      players.forEach(p => { p.score = 0; p.kills = 0; }); // reset per-player scores
       document.getElementById('scoreDisplay').textContent = '0';
+      document.getElementById('p1ScoreDisplay').textContent = '0';
+      document.getElementById('p2ScoreDisplay').textContent = '0';
       document.getElementById('killDisplay').textContent = '0';
+      document.getElementById('finalCoopScores').style.display = 'none';
+      updateScoreHUD(); // switch HUD display mode based on coopMode
       document.getElementById('waveDisplay').textContent = '1';
       document.getElementById('bossHpBar').style.display = 'none';
 
