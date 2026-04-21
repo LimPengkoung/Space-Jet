@@ -2226,7 +2226,7 @@
       ctx.translate(e.x, e.y);
       const c = ENEMY_COLORS[e.type] || ENEMY_COLORS.small;
       const isBoss = e.type.startsWith('boss');
-      const s = e.type === 'boss3' ? 1.2 : (e.type === 'boss2' ? 1.1 : (isBoss ? 1 : (e.type === 'tank' ? 1 : (e.type === 'medium' ? 0.9 : 0.7))));
+      const s = e.type === 'boss4' ? 1.5 : (e.type === 'boss3' ? 1.2 : (e.type === 'boss2' ? 1.1 : (isBoss ? 1 : (e.type === 'tank' ? 1 : (e.type === 'medium' ? 0.9 : 0.7)))));
       ctx.scale(s, s);
 
       const flashHit = e.hitFlash > 0;
@@ -2503,7 +2503,7 @@
 
       // Boss HP bar above sprite
       if (isBoss) {
-        const barW = 90, barH = 7;
+        const barW = e.type === 'boss4' ? 130 : 90, barH = 7;
         const pct = Math.max(0, e.hp / e.maxHp);
         const color = `hsl(${pct * 120},100%,50%)`;
         drawPremiumBar(-barW / 2, -hh / 2 - 18, barW, barH, pct, color);
@@ -2517,6 +2517,56 @@
         const bw = 38;
         const pct = Math.max(0, e.hp / e.maxHp);
         drawPremiumBar(e.x - bw / 2, e.y - e.h / 2 - 12, bw, 6, pct, '#40ff40');
+      }
+
+      // Boss4 sub-part HP bars drawn in world-space (outside scale transform)
+      if (e.type === 'boss4') {
+        const bw = 36, bh = 5;
+        const sc = 1.5; // match boss4 scale
+        // Turret bars (above each turret)
+        const tLx = e.x + (-42) * sc, tLy = e.y + (-12) * sc;
+        const tRx = e.x + ( 42) * sc, tRy = e.y + (-12) * sc;
+        const cLx = e.x + (-52) * sc, cLy = e.y + ( 32) * sc;
+        const cRx = e.x + ( 52) * sc, cRy = e.y + ( 32) * sc;
+
+        if (!e.turretL.dead) {
+          drawPremiumBar(tLx - bw/2, tLy - 22, bw, bh, Math.max(0, e.turretL.hp / e.turretL.maxHp), '#44aaff');
+          ctx.fillStyle = '#aaddff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('TUR', tLx, tLy - 25);
+        } else {
+          drawPremiumBar(tLx - bw/2, tLy - 22, bw, bh, 0, '#555');
+          ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('\u2717', tLx, tLy - 25);
+        }
+        if (!e.turretR.dead) {
+          drawPremiumBar(tRx - bw/2, tRy - 22, bw, bh, Math.max(0, e.turretR.hp / e.turretR.maxHp), '#44aaff');
+          ctx.fillStyle = '#aaddff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('TUR', tRx, tRy - 25);
+        } else {
+          drawPremiumBar(tRx - bw/2, tRy - 22, bw, bh, 0, '#555');
+          ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('\u2717', tRx, tRy - 25);
+        }
+        // Cannon bars (below each cannon)
+        if (!e.cannonL.dead) {
+          drawPremiumBar(cLx - bw/2, cLy + 14, bw, bh, Math.max(0, e.cannonL.hp / e.cannonL.maxHp), '#ffaa44');
+          ctx.fillStyle = '#ffd088'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('CAN', cLx, cLy + 11);
+        } else {
+          drawPremiumBar(cLx - bw/2, cLy + 14, bw, bh, 0, '#555');
+          ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('\u2717', cLx, cLy + 11);
+        }
+        if (!e.cannonR.dead) {
+          drawPremiumBar(cRx - bw/2, cRy + 14, bw, bh, Math.max(0, e.cannonR.hp / e.cannonR.maxHp), '#ffaa44');
+          ctx.fillStyle = '#ffd088'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('CAN', cRx, cRy + 11);
+        } else {
+          drawPremiumBar(cRx - bw/2, cRy + 14, bw, bh, 0, '#555');
+          ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('\u2717', cRx, cRy + 11);
+        }
+        ctx.textAlign = 'left'; // reset
       }
     }
 
@@ -2626,9 +2676,9 @@
 
           for (const t of [e.turretL, e.turretR]) {
             if (t.dead) continue;
-            // Rotate barrel toward nearest player
-            const tx = e.x + (t === e.turretL ? -42 : 42);
-            const ty = e.y - 12;
+            // Rotate barrel toward nearest player (positions scaled by 1.5)
+            const tx = e.x + (t === e.turretL ? -42 : 42) * 1.5;
+            const ty = e.y + (-12) * 1.5;
             const ta = Math.atan2(nearP.y - ty, nearP.x - tx) + Math.PI/2;
             const da = ta - t.angle;
             t.angle += Math.atan2(Math.sin(da), Math.cos(da)) * 0.08;
@@ -2643,13 +2693,13 @@
             }
           }
 
-          // Cannon spread fire
+          // Cannon spread fire (positions scaled by 1.5)
           for (const [cn, ox] of [[e.cannonL, -52], [e.cannonR, 52]]) {
             if (cn.dead) continue;
             cn.shootTimer++;
             if (cn.shootTimer >= 80) {
               cn.shootTimer = 0;
-              const cx = e.x + ox, cy = e.y + 32;
+              const cx = e.x + ox * 1.5, cy = e.y + 32 * 1.5;
               for (let a = -1; a <= 1; a++) {
                 const ang = Math.PI/2 + a * 0.35;
                 spawnEnemyBullet(cx, cy, Math.cos(ang) * 3.5, Math.sin(ang) * 3.5, 'big');
@@ -2814,10 +2864,10 @@
         for (const e of enemies) {
           if (e.dead || e.type !== 'boss4') continue;
           const parts = [
-            { part: e.turretL, ox: -42, oy: -12, r: 16 },
-            { part: e.turretR, ox:  42, oy: -12, r: 16 },
-            { part: e.cannonL, ox: -52, oy:  32, r: 14 },
-            { part: e.cannonR, ox:  52, oy:  32, r: 14 },
+            { part: e.turretL, ox: -42*1.5, oy: -12*1.5, r: 24 },
+            { part: e.turretR, ox:  42*1.5, oy: -12*1.5, r: 24 },
+            { part: e.cannonL, ox: -52*1.5, oy:  32*1.5, r: 22 },
+            { part: e.cannonR, ox:  52*1.5, oy:  32*1.5, r: 22 },
           ];
           for (const { part, ox, oy, r } of parts) {
             if (part.dead) continue;
