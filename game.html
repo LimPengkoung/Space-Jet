@@ -1136,7 +1136,7 @@
         w: 36, h: 44, speed: 9,
         hp: 6, maxHp: 6,
         shootTimer: 0, shootInterval: 14,
-        invincible: 0, thrustAnim: 0, trail: [],
+        invincible: 0, thrustAnim: 0,
         gunLevel: 1, baseGunLevel: 1, gunTimer: 0,
         shield: false, shieldAnim: 0, shields: 0,
         dead: false, deathAnim: 0, laserTargetY: 0
@@ -1147,7 +1147,7 @@
         w: 36, h: 44, speed: 9,
         hp: 6, maxHp: 6,
         shootTimer: 0, shootInterval: 14,
-        invincible: 0, thrustAnim: 0, trail: [],
+        invincible: 0, thrustAnim: 0,
         gunLevel: 1, baseGunLevel: 1, gunTimer: 0,
         shield: false, shieldAnim: 0, shields: 0,
         dead: false, deathAnim: 0, laserTargetY: 0
@@ -1160,7 +1160,6 @@
         p.hp = 6; p.maxHp = 6;
         p.shootTimer = 0;
         p.invincible = 0;
-        p.trail = [];
         p.gunLevel = 1;
         p.baseGunLevel = 1;
         p.gunTimer = 0;
@@ -1235,10 +1234,6 @@
 
         p.x = Math.max(p.w / 2, Math.min(W - p.w / 2, p.x));
         p.y = Math.max(p.h / 2, Math.min(H - p.h / 2, p.y));
-
-        p.trail.push({ x: p.x, y: p.y + p.h / 2, life: 1 });
-        if (p.trail.length > 12) p.trail.shift();
-        for (const t of p.trail) t.life -= 0.08;
 
         p.shootTimer--;
         if (p.shootTimer <= 0) {
@@ -3165,8 +3160,8 @@
         updateInvinciblePacks();
         collide();
         
-        if (isOnline && peerConn && peerConn.open) {
-           if (frameCount % 2 === 0) {
+        if (isOnline && peerConn) {
+           if (frameCount % 3 === 0) {
                try {
                    peerConn.send({
                       t: 's',
@@ -3184,12 +3179,14 @@
       } else {
         // Client Mode
         updateParticles(); // Update client-created particles visually
-        if (peerConn && peerConn.open && frameCount % 2 === 0) {
+        if (peerConn && frameCount % 3 === 0) {
             try {
-                peerConn.send({
-                   t: 'i',
-                   p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
-                });
+                if(peerConn.open !== false) {
+                   peerConn.send({
+                      t: 'i',
+                      p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
+                   });
+                }
             } catch(err) { console.error('Client send error:', err); }
         }
       }
