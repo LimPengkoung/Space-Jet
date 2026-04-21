@@ -3042,23 +3042,26 @@
     const BOSS_REINFORCE_INTERVAL = 300; // send reinforcements every 5 seconds
 
     function applyNetworkState(st) {
-        // Reconstruct arrays by merging properties onto existing objects where possible
-        // to avoid breaking stale JS references held by the render loop.
-        // For players, merge in-place so the draw functions always see live objects.
+        // Players: merge in-place so draw functions always see the same live object references.
         if (Array.isArray(st.p)) {
             for (let i = 0; i < st.p.length && i < players.length; i++) {
                 Object.assign(players[i], st.p[i]);
             }
         }
-        // Replace bulk arrays directly (they are only iterated, never cached by reference)
-        enemies       = st.e;
-        playerBullets = st.pb;
-        enemyBullets  = st.eb;
-        enemyLasers   = st.el;
-        gunDrops      = st.gd;
-        heartPacks    = st.hp;
-        shieldDrops   = st.sd;
-        invinciblePacks = st.ip;
+        // All game arrays are declared as `const`, so we CANNOT reassign them with `=`.
+        // Instead, clear each array and repopulate it in-place from the host snapshot.
+        function syncArray(dest, src) {
+            dest.length = 0;
+            if (Array.isArray(src)) for (const item of src) dest.push(item);
+        }
+        syncArray(enemies,         st.e);
+        syncArray(playerBullets,   st.pb);
+        syncArray(enemyBullets,    st.eb);
+        syncArray(enemyLasers,     st.el);
+        syncArray(gunDrops,        st.gd);
+        syncArray(heartPacks,      st.hp);
+        syncArray(shieldDrops,     st.sd);
+        syncArray(invinciblePacks, st.ip);
         
         score = st.sc.s; kills = st.sc.k; wave = st.sc.w; waveTimer = st.sc.wt;
         if (st.sc.c !== currentMapTheme) setMapTheme(st.sc.c);
