@@ -2110,6 +2110,18 @@
       if (type === 'boss')  { e.hp = 40 + wave * 17; e.maxHp = 40 + wave * 17; e.w = 90;  e.h = 70; e.speed = 2.6; e.score = 2000; e.shootInterval = 14; e.burstMax = 6;  e.burstCooldown = 75; }
       if (type === 'boss2') { e.hp = 60 + wave * 21; e.maxHp = 60 + wave * 21; e.w = 100; e.h = 80; e.speed = 3.2; e.score = 3000; e.shootInterval = 10; e.burstMax = 8;  e.burstCooldown = 65; }
       if (type === 'boss3') { e.hp = 80 + wave * 25; e.maxHp = 80 + wave * 25; e.w = 110; e.h = 90; e.speed = 3.8; e.speed2 = 5.5; e.score = 5000; e.shootInterval = 8; e.burstMax = 10; e.burstCooldown = 55; }
+      if (type === 'boss4') {
+        // ── CARRIER FORTESS — massive battleship with destructible sub-parts ──
+        e.hp = 100 + wave * 22; e.maxHp = e.hp;
+        e.w = 150; e.h = 120; e.speed = 1.4; e.score = 10000;
+        e.shootInterval = 20; e.burstMax = 3; e.burstCooldown = 120;
+        // 2 front turrets (rotate + aim at player)
+        e.turretL = { hp: 35, maxHp: 35, dead: false, angle: Math.PI / 2, shootTimer: 30 };
+        e.turretR = { hp: 35, maxHp: 35, dead: false, angle: Math.PI / 2, shootTimer: 0 };
+        // 2 rear cannons (fixed spread fire downward)
+        e.cannonL = { hp: 45, maxHp: 45, dead: false, shootTimer: 60 };
+        e.cannonR = { hp: 45, maxHp: 45, dead: false, shootTimer: 0 };
+      }
 
       // ── CO-OP DIFFICULTY MULTIPLIER ──────────────────────────────────
       // 2-player scaling: tankier enemies, slightly faster, but NOT bullet-hell density.
@@ -2136,7 +2148,7 @@
       const MAX_ENEMIES = coopMode ? 40 : 25;
 
       if (bossWave) {
-        const bossType = wave % 15 === 0 ? 'boss3' : (wave % 10 === 0 ? 'boss2' : 'boss');
+        const bossType = wave % 20 === 0 ? 'boss4' : (wave % 15 === 0 ? 'boss3' : (wave % 10 === 0 ? 'boss2' : 'boss'));
         spawnEnemy(bossType, W / 2, -100, 'boss');
 
         if (coopMode) {
@@ -2325,6 +2337,147 @@
         ctx.beginPath(); ctx.moveTo(-16, -hh / 2 + 10); ctx.lineTo(16, -hh / 2 + 10); ctx.lineTo(0, -hh / 2 + 20); ctx.closePath(); ctx.fill();
         ctx.shadowBlur = 0;
 
+        // ── Boss4: massive carrier fortress with destructible turrets and cannons ──
+      } else if (e.type === 'boss4') {
+        const fl = e.hitFlash > 0;
+        const tl = e.turretL, tr = e.turretR, cl = e.cannonL, cr = e.cannonR;
+        const hpPct = e.hp / e.maxHp;
+
+        // ── Main hull body ──
+        ctx.fillStyle = fl ? '#fff' : '#1a2a3a';
+        // Central fuselage (tall hexagon)
+        ctx.beginPath();
+        ctx.moveTo(0, -58); ctx.lineTo(22, -30); ctx.lineTo(24, 28);
+        ctx.lineTo(0, 50);  ctx.lineTo(-24, 28); ctx.lineTo(-22, -30);
+        ctx.closePath(); ctx.fill();
+
+        // Wide wings
+        ctx.fillStyle = fl ? '#fff' : '#0f1e2e';
+        ctx.beginPath(); // left wing
+        ctx.moveTo(-22, -10); ctx.lineTo(-68, 10); ctx.lineTo(-72, 40); ctx.lineTo(-50, 48); ctx.lineTo(-22, 28);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath(); // right wing
+        ctx.moveTo(22, -10);  ctx.lineTo(68, 10);  ctx.lineTo(72, 40);  ctx.lineTo(50, 48);  ctx.lineTo(22, 28);
+        ctx.closePath(); ctx.fill();
+
+        // Hull plating stripes
+        ctx.fillStyle = fl ? '#fff' : '#263a50';
+        ctx.fillRect(-18, -40, 36, 8);
+        ctx.fillRect(-14, -16, 28, 6);
+        ctx.fillRect(-10, 10,  20, 6);
+
+        // Engine glow (rear)
+        if (!fl) {
+          ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 22;
+          ctx.fillStyle = `rgba(60,120,255,${0.6 + Math.sin(e.timer * 0.2) * 0.3})`;
+          ctx.beginPath(); ctx.ellipse(-14, 52, 7, 10, 0, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse( 14, 52, 7, 10, 0, 0, Math.PI*2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+
+        // ── Left TURRET (front-left) ──
+        ctx.save();
+        ctx.translate(-42, -12);
+        if (tl.dead) {
+          // Show destroyed wreckage
+          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.6;
+          ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
+          ctx.globalAlpha = 1;
+        } else {
+          const tDmg = tl.hp / tl.maxHp;
+          ctx.fillStyle = fl ? '#fff' : `hsl(${tDmg*40},80%,${20+tDmg*15}%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = fl ? '#aaa' : '#0a1520';
+          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+          // Turret barrel (pointing toward player)
+          ctx.save(); ctx.rotate(tl.angle);
+          ctx.fillStyle = fl ? '#fff' : '#2a3a4a';
+          ctx.fillRect(-3, -18, 6, 18);
+          ctx.fillStyle = fl ? '#aaa' : '#4488aa';
+          ctx.fillRect(-2, -18, 4, 5);
+          ctx.restore();
+          // HP pip
+          if (!fl) { ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8; }
+          ctx.fillStyle = `hsl(${tDmg*120},100%,50%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        // ── Right TURRET (front-right) ──
+        ctx.save();
+        ctx.translate(42, -12);
+        if (tr.dead) {
+          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.6;
+          ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
+          ctx.globalAlpha = 1;
+        } else {
+          const tDmg = tr.hp / tr.maxHp;
+          ctx.fillStyle = fl ? '#fff' : `hsl(${tDmg*40},80%,${20+tDmg*15}%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = fl ? '#aaa' : '#0a1520';
+          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+          ctx.save(); ctx.rotate(tr.angle);
+          ctx.fillStyle = fl ? '#fff' : '#2a3a4a';
+          ctx.fillRect(-3, -18, 6, 18);
+          ctx.fillStyle = fl ? '#aaa' : '#4488aa';
+          ctx.fillRect(-2, -18, 4, 5);
+          ctx.restore();
+          if (!fl) { ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8; }
+          ctx.fillStyle = `hsl(${(tr.hp/tr.maxHp)*120},100%,50%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        // ── Left CANNON (rear-left) ──
+        ctx.save();
+        ctx.translate(-52, 32);
+        if (cl.dead) {
+          ctx.fillStyle = '#222'; ctx.globalAlpha = 0.5;
+          ctx.fillRect(-10, -8, 20, 16); ctx.globalAlpha = 1;
+        } else {
+          const cDmg = cl.hp / cl.maxHp;
+          ctx.fillStyle = fl ? '#fff' : `hsl(${cDmg*30+10},70%,${18+cDmg*12}%)`;
+          ctx.fillRect(-11, -10, 22, 20);
+          ctx.fillStyle = fl ? '#aaa' : '#3a5a7a';
+          ctx.fillRect(-4, -22, 8, 14); // barrel
+          ctx.fillRect(-4, -26, 8,  5); // muzzle
+          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10; }
+          ctx.fillStyle = `hsl(${cDmg*60},100%,55%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        // ── Right CANNON (rear-right) ──
+        ctx.save();
+        ctx.translate(52, 32);
+        if (cr.dead) {
+          ctx.fillStyle = '#222'; ctx.globalAlpha = 0.5;
+          ctx.fillRect(-10, -8, 20, 16); ctx.globalAlpha = 1;
+        } else {
+          const cDmg = cr.hp / cr.maxHp;
+          ctx.fillStyle = fl ? '#fff' : `hsl(${cDmg*30+10},70%,${18+cDmg*12}%)`;
+          ctx.fillRect(-11, -10, 22, 20);
+          ctx.fillStyle = fl ? '#aaa' : '#3a5a7a';
+          ctx.fillRect(-4, -22, 8, 14);
+          ctx.fillRect(-4, -26, 8,  5);
+          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10; }
+          ctx.fillStyle = `hsl(${(cr.hp/cr.maxHp)*60},100%,55%)`;
+          ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+
+        // Main energy core
+        if (!fl) { ctx.shadowColor = hpPct > 0.5 ? '#00ccff' : '#ff4400'; ctx.shadowBlur = 25; }
+        ctx.fillStyle = fl ? '#fff' : (hpPct > 0.5 ? '#00aaff' : '#ff6600');
+        ctx.beginPath(); ctx.arc(0, -8, 10 + Math.sin(e.timer*0.15)*2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.arc(0, -8, 5, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+
         // ── Default (small, medium, boss) ──
       } else {
         ctx.fillStyle = flashHit ? '#fff' : c.wing;
@@ -2456,6 +2609,53 @@
             e.x = Math.max(e.w / 2, Math.min(W - e.w / 2, e.x));
             e.y = Math.max(80, Math.min(300, e.y));
             document.getElementById('bossHpFill').style.width = (e.hp / e.maxHp * 100) + '%';
+          }
+        } else if (e.type === 'boss4') {
+          // Slow horizontal sweep
+          if (e.y < 140) { e.y += e.speed; }
+          else {
+            e.x = W / 2 + Math.sin(e.timer * 0.012) * 160;
+            e.y = 140 + Math.sin(e.timer * 0.007) * 30;
+            e.x = Math.max(e.w / 2, Math.min(W - e.w / 2, e.x));
+            document.getElementById('bossHpFill').style.width = (e.hp / e.maxHp * 100) + '%';
+          }
+
+          // Turret aiming + firing
+          const aliveP = players.filter(p => !p.dead);
+          const nearP  = aliveP.sort((a,b) => Math.hypot(a.x-e.x,a.y-e.y) - Math.hypot(b.x-e.x,b.y-e.y))[0] || players[0];
+
+          for (const t of [e.turretL, e.turretR]) {
+            if (t.dead) continue;
+            // Rotate barrel toward nearest player
+            const tx = e.x + (t === e.turretL ? -42 : 42);
+            const ty = e.y - 12;
+            const ta = Math.atan2(nearP.y - ty, nearP.x - tx) + Math.PI/2;
+            const da = ta - t.angle;
+            t.angle += Math.atan2(Math.sin(da), Math.cos(da)) * 0.08;
+            // Shoot every 50 frames
+            t.shootTimer++;
+            if (t.shootTimer >= 50) {
+              t.shootTimer = 0;
+              const ang = t.angle - Math.PI/2;
+              spawnEnemyBullet(tx, ty, Math.cos(ang) * 5.5, Math.sin(ang) * 5.5, 'normal');
+              spawnEnemyBullet(tx, ty, Math.cos(ang+0.15)*5.0, Math.sin(ang+0.15)*5.0, 'normal');
+              playSfx('enemyShoot');
+            }
+          }
+
+          // Cannon spread fire
+          for (const [cn, ox] of [[e.cannonL, -52], [e.cannonR, 52]]) {
+            if (cn.dead) continue;
+            cn.shootTimer++;
+            if (cn.shootTimer >= 80) {
+              cn.shootTimer = 0;
+              const cx = e.x + ox, cy = e.y + 32;
+              for (let a = -1; a <= 1; a++) {
+                const ang = Math.PI/2 + a * 0.35;
+                spawnEnemyBullet(cx, cy, Math.cos(ang) * 3.5, Math.sin(ang) * 3.5, 'big');
+              }
+              playSfx('enemyShoot');
+            }
           }
         }
 
@@ -2608,6 +2808,42 @@
       // Player bullets vs enemies
       for (let bi = playerBullets.length - 1; bi >= 0; bi--) {
         const b = playerBullets[bi];
+        let bulletConsumed = false;
+
+        // ── Boss4 sub-part collision (check BEFORE main body) ──────────
+        for (const e of enemies) {
+          if (e.dead || e.type !== 'boss4') continue;
+          const parts = [
+            { part: e.turretL, ox: -42, oy: -12, r: 16 },
+            { part: e.turretR, ox:  42, oy: -12, r: 16 },
+            { part: e.cannonL, ox: -52, oy:  32, r: 14 },
+            { part: e.cannonR, ox:  52, oy:  32, r: 14 },
+          ];
+          for (const { part, ox, oy, r } of parts) {
+            if (part.dead) continue;
+            const px = e.x + ox, py = e.y + oy;
+            if (Math.hypot(b.x - px, b.y - py) < r) {
+              playerBullets.splice(bi, 1);
+              bulletConsumed = true;
+              const dmg = b.type === 'rocket' ? 5 : b.type === 'homing_rocket' ? 2 : 1;
+              part.hp -= dmg;
+              e.hp   -= dmg * 0.5; // also chip main hull
+              e.hitFlash = 4;
+              e._lastHitOwner = b.owner;
+              spawnHitEffect(b.x, b.y);
+              playSfx('enemyHit');
+              if (part.hp <= 0) {
+                part.dead = true;
+                spawnExplosion(px, py, 30, false);
+                playSfx('enemyDie');
+              }
+              break;
+            }
+          }
+          if (bulletConsumed) break;
+        }
+        if (bulletConsumed) continue;
+
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
           const e = enemies[ei];
           if (e.dead) continue;
