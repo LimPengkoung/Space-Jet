@@ -1583,15 +1583,16 @@
       musicNodes.push(masterGain);
 
       // BPM & timing
-      const BPM = mode.startsWith('boss') ? 145 : 105;
+      const BPM = mode.startsWith('boss') ? 145 : 130;
       const beat = 60 / BPM;
       const bar = beat * 4;
 
       // ── Bass line ──
-      let bassNotes = [41.20, 41.20, 41.20, 0, 32.70, 32.70, 32.70, 0];
-      if (mode === 'boss') bassNotes = [41.20, 41.20, 49.00, 41.20, 41.20, 41.20, 55.00, 41.20]; // Frantic alternating galloping
-      else if (mode === 'boss2') bassNotes = [36.71, 36.71, 0, 41.20, 49.00, 49.00, 0, 36.71]; // heavy syncopation
-      else if (mode === 'boss3') bassNotes = [32.70, 49.00, 32.70, 0, 32.70, 49.00, 32.70, 55.00]; // dark drone 
+      // Regular: driving 8th-note gallop at 130 BPM — E1 root with chromatic walk
+      let bassNotes = [41.20, 41.20, 55.00, 41.20, 49.00, 41.20, 61.74, 49.00];
+      if (mode === 'boss')  bassNotes = [41.20, 41.20, 49.00, 41.20, 41.20, 41.20, 55.00, 41.20];
+      else if (mode === 'boss2') bassNotes = [36.71, 36.71, 0, 41.20, 49.00, 49.00, 0, 36.71];
+      else if (mode === 'boss3') bassNotes = [32.70, 49.00, 32.70, 0, 32.70, 49.00, 32.70, 55.00];
 
       function scheduleBass(startTime) {
         if (!musicPlaying) return;
@@ -1605,8 +1606,8 @@
           o.frequency.value = freq;
           g.gain.setValueAtTime(0, t);
           g.gain.linearRampToValueAtTime(0.6, t + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.5));
-          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.5));
+          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.38));
+          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.38));
           musicNodes.push(o, g);
         });
         const next = startTime + (mode.startsWith('boss') ? beat * 2 : bar);
