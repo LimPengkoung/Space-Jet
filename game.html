@@ -2337,143 +2337,186 @@
         ctx.beginPath(); ctx.moveTo(-16, -hh / 2 + 10); ctx.lineTo(16, -hh / 2 + 10); ctx.lineTo(0, -hh / 2 + 20); ctx.closePath(); ctx.fill();
         ctx.shadowBlur = 0;
 
-        // ── Boss4: massive carrier fortress with destructible turrets and cannons ──
+        // ── Boss4: massive carrier fortress — long-wing variant ──
       } else if (e.type === 'boss4') {
         const fl = e.hitFlash > 0;
         const tl = e.turretL, tr = e.turretR, cl = e.cannonL, cr = e.cannonR;
         const hpPct = e.hp / e.maxHp;
 
-        // ── Main hull body ──
-        ctx.fillStyle = fl ? '#fff' : '#1a2a3a';
-        // Central fuselage (tall hexagon)
+        // ── Long wings (drawn first so parts sit on top) ──
+        ctx.fillStyle = fl ? '#fff' : '#0d1c2c';
+        // Left wing — sweeps out to x=-88
         ctx.beginPath();
-        ctx.moveTo(0, -58); ctx.lineTo(22, -30); ctx.lineTo(24, 28);
-        ctx.lineTo(0, 50);  ctx.lineTo(-24, 28); ctx.lineTo(-22, -30);
+        ctx.moveTo(-20, -14);
+        ctx.lineTo(-88,  2);
+        ctx.lineTo(-92, 30);
+        ctx.lineTo(-82, 46);
+        ctx.lineTo(-20, 30);
+        ctx.closePath(); ctx.fill();
+        // Right wing — mirror
+        ctx.beginPath();
+        ctx.moveTo( 20, -14);
+        ctx.lineTo( 88,  2);
+        ctx.lineTo( 92, 30);
+        ctx.lineTo( 82, 46);
+        ctx.lineTo( 20, 30);
         ctx.closePath(); ctx.fill();
 
-        // Wide wings
-        ctx.fillStyle = fl ? '#fff' : '#0f1e2e';
-        ctx.beginPath(); // left wing
-        ctx.moveTo(-22, -10); ctx.lineTo(-68, 10); ctx.lineTo(-72, 40); ctx.lineTo(-50, 48); ctx.lineTo(-22, 28);
-        ctx.closePath(); ctx.fill();
-        ctx.beginPath(); // right wing
-        ctx.moveTo(22, -10);  ctx.lineTo(68, 10);  ctx.lineTo(72, 40);  ctx.lineTo(50, 48);  ctx.lineTo(22, 28);
+        // Wing armour plates (subtle shading)
+        ctx.fillStyle = fl ? '#fff' : '#162636';
+        // left wing detail
+        ctx.beginPath(); ctx.moveTo(-28,2); ctx.lineTo(-78,8); ctx.lineTo(-80,24); ctx.lineTo(-30,18); ctx.closePath(); ctx.fill();
+        // right wing detail
+        ctx.beginPath(); ctx.moveTo( 28,2); ctx.lineTo( 78,8); ctx.lineTo( 80,24); ctx.lineTo( 30,18); ctx.closePath(); ctx.fill();
+
+        // Wing tip accent lines
+        if (!fl) {
+          ctx.strokeStyle = 'rgba(0,150,255,0.35)'; ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.moveTo(-86, 8); ctx.lineTo(-86, 36); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo( 86, 8); ctx.lineTo( 86, 36); ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+
+        // ── Central fuselage ──
+        ctx.fillStyle = fl ? '#fff' : '#1a2a3a';
+        ctx.beginPath();
+        ctx.moveTo(0, -60); ctx.lineTo(24, -28); ctx.lineTo(26, 26);
+        ctx.lineTo(0, 52);  ctx.lineTo(-26, 26); ctx.lineTo(-24, -28);
         ctx.closePath(); ctx.fill();
 
-        // Hull plating stripes
+        // Fuselage plating
         ctx.fillStyle = fl ? '#fff' : '#263a50';
-        ctx.fillRect(-18, -40, 36, 8);
-        ctx.fillRect(-14, -16, 28, 6);
+        ctx.fillRect(-18, -42, 36, 8);
+        ctx.fillRect(-14, -18, 28, 6);
         ctx.fillRect(-10, 10,  20, 6);
 
-        // Engine glow (rear)
+        // Engine glow rear
         if (!fl) {
           ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 22;
           ctx.fillStyle = `rgba(60,120,255,${0.6 + Math.sin(e.timer * 0.2) * 0.3})`;
-          ctx.beginPath(); ctx.ellipse(-14, 52, 7, 10, 0, 0, Math.PI*2); ctx.fill();
-          ctx.beginPath(); ctx.ellipse( 14, 52, 7, 10, 0, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(-14, 54, 7, 10, 0, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.ellipse( 14, 54, 7, 10, 0, 0, Math.PI*2); ctx.fill();
           ctx.shadowBlur = 0;
         }
 
-        // ── Left TURRET (front-left) ──
+        // ── Left TURRET — mounted on left wing at (-68, -2) ──
         ctx.save();
-        ctx.translate(-42, -12);
+        ctx.translate(-68, -2);
         if (tl.dead) {
-          // Show destroyed wreckage
-          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.55;
           ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
           ctx.globalAlpha = 1;
         } else {
           const tDmg = tl.hp / tl.maxHp;
+          // Mount pad on wing
+          ctx.fillStyle = fl ? '#aaa' : '#1e3a55';
+          ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI*2); ctx.fill();
+          // Turret dome
           ctx.fillStyle = fl ? '#fff' : `hsl(${tDmg*40},80%,${20+tDmg*15}%)`;
-          ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
           ctx.fillStyle = fl ? '#aaa' : '#0a1520';
-          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
-          // Turret barrel (pointing toward player)
+          ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI*2); ctx.fill();
+          // Rotating barrel
           ctx.save(); ctx.rotate(tl.angle);
           ctx.fillStyle = fl ? '#fff' : '#2a3a4a';
-          ctx.fillRect(-3, -18, 6, 18);
+          ctx.fillRect(-3, -20, 6, 20);
           ctx.fillStyle = fl ? '#aaa' : '#4488aa';
-          ctx.fillRect(-2, -18, 4, 5);
+          ctx.fillRect(-2, -20, 4, 5);
           ctx.restore();
-          // HP pip
-          if (!fl) { ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8; }
-          ctx.fillStyle = `hsl(${tDmg*120},100%,50%)`;
+          // Glow pip
+          if (!fl) { ctx.shadowColor = `hsl(${tDmg*120},80%,50%)`; ctx.shadowBlur = 10; }
+          ctx.fillStyle = `hsl(${tDmg*120},100%,55%)`;
           ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
           ctx.shadowBlur = 0;
         }
         ctx.restore();
 
-        // ── Right TURRET (front-right) ──
+        // ── Right TURRET — mounted on right wing at (+68, -2) ──
         ctx.save();
-        ctx.translate(42, -12);
+        ctx.translate(68, -2);
         if (tr.dead) {
-          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.6;
+          ctx.fillStyle = '#333'; ctx.globalAlpha = 0.55;
           ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
           ctx.globalAlpha = 1;
         } else {
           const tDmg = tr.hp / tr.maxHp;
+          ctx.fillStyle = fl ? '#aaa' : '#1e3a55';
+          ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI*2); ctx.fill();
           ctx.fillStyle = fl ? '#fff' : `hsl(${tDmg*40},80%,${20+tDmg*15}%)`;
-          ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2); ctx.fill();
           ctx.fillStyle = fl ? '#aaa' : '#0a1520';
-          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI*2); ctx.fill();
           ctx.save(); ctx.rotate(tr.angle);
           ctx.fillStyle = fl ? '#fff' : '#2a3a4a';
-          ctx.fillRect(-3, -18, 6, 18);
+          ctx.fillRect(-3, -20, 6, 20);
           ctx.fillStyle = fl ? '#aaa' : '#4488aa';
-          ctx.fillRect(-2, -18, 4, 5);
+          ctx.fillRect(-2, -20, 4, 5);
           ctx.restore();
-          if (!fl) { ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8; }
-          ctx.fillStyle = `hsl(${(tr.hp/tr.maxHp)*120},100%,50%)`;
+          if (!fl) { ctx.shadowColor = `hsl(${(tr.hp/tr.maxHp)*120},80%,50%)`; ctx.shadowBlur = 10; }
+          ctx.fillStyle = `hsl(${(tr.hp/tr.maxHp)*120},100%,55%)`;
           ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
           ctx.shadowBlur = 0;
         }
         ctx.restore();
 
-        // ── Left CANNON (rear-left) ──
+        // ── Left CANNON — mounted on rear left wing at (-76, +30) ──
         ctx.save();
-        ctx.translate(-52, 32);
+        ctx.translate(-76, 30);
         if (cl.dead) {
           ctx.fillStyle = '#222'; ctx.globalAlpha = 0.5;
-          ctx.fillRect(-10, -8, 20, 16); ctx.globalAlpha = 1;
+          ctx.fillRect(-12, -10, 24, 18); ctx.globalAlpha = 1;
         } else {
           const cDmg = cl.hp / cl.maxHp;
+          // Mount block
+          ctx.fillStyle = fl ? '#aaa' : '#1a3040';
+          ctx.fillRect(-14, -12, 28, 22);
+          // Cannon body
           ctx.fillStyle = fl ? '#fff' : `hsl(${cDmg*30+10},70%,${18+cDmg*12}%)`;
-          ctx.fillRect(-11, -10, 22, 20);
+          ctx.fillRect(-10, -10, 20, 18);
+          // Double barrel (two thin tubes)
           ctx.fillStyle = fl ? '#aaa' : '#3a5a7a';
-          ctx.fillRect(-4, -22, 8, 14); // barrel
-          ctx.fillRect(-4, -26, 8,  5); // muzzle
-          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10; }
+          ctx.fillRect(-6, -26, 5, 18);
+          ctx.fillRect( 1, -26, 5, 18);
+          ctx.fillRect(-6, -30, 5, 5);
+          ctx.fillRect( 1, -30, 5, 5);
+          // Glow
+          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 12; }
           ctx.fillStyle = `hsl(${cDmg*60},100%,55%)`;
-          ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(-3, 0, 4, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc( 3, 0, 4, 0, Math.PI*2); ctx.fill();
           ctx.shadowBlur = 0;
         }
         ctx.restore();
 
-        // ── Right CANNON (rear-right) ──
+        // ── Right CANNON — mounted on rear right wing at (+76, +30) ──
         ctx.save();
-        ctx.translate(52, 32);
+        ctx.translate(76, 30);
         if (cr.dead) {
           ctx.fillStyle = '#222'; ctx.globalAlpha = 0.5;
-          ctx.fillRect(-10, -8, 20, 16); ctx.globalAlpha = 1;
+          ctx.fillRect(-12, -10, 24, 18); ctx.globalAlpha = 1;
         } else {
           const cDmg = cr.hp / cr.maxHp;
+          ctx.fillStyle = fl ? '#aaa' : '#1a3040';
+          ctx.fillRect(-14, -12, 28, 22);
           ctx.fillStyle = fl ? '#fff' : `hsl(${cDmg*30+10},70%,${18+cDmg*12}%)`;
-          ctx.fillRect(-11, -10, 22, 20);
+          ctx.fillRect(-10, -10, 20, 18);
           ctx.fillStyle = fl ? '#aaa' : '#3a5a7a';
-          ctx.fillRect(-4, -22, 8, 14);
-          ctx.fillRect(-4, -26, 8,  5);
-          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 10; }
+          ctx.fillRect(-6, -26, 5, 18);
+          ctx.fillRect( 1, -26, 5, 18);
+          ctx.fillRect(-6, -30, 5, 5);
+          ctx.fillRect( 1, -30, 5, 5);
+          if (!fl) { ctx.shadowColor = '#ff8800'; ctx.shadowBlur = 12; }
           ctx.fillStyle = `hsl(${(cr.hp/cr.maxHp)*60},100%,55%)`;
-          ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(-3, 0, 4, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc( 3, 0, 4, 0, Math.PI*2); ctx.fill();
           ctx.shadowBlur = 0;
         }
         ctx.restore();
 
         // Main energy core
-        if (!fl) { ctx.shadowColor = hpPct > 0.5 ? '#00ccff' : '#ff4400'; ctx.shadowBlur = 25; }
+        if (!fl) { ctx.shadowColor = hpPct > 0.5 ? '#00ccff' : '#ff4400'; ctx.shadowBlur = 28; }
         ctx.fillStyle = fl ? '#fff' : (hpPct > 0.5 ? '#00aaff' : '#ff6600');
-        ctx.beginPath(); ctx.arc(0, -8, 10 + Math.sin(e.timer*0.15)*2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -8, 11 + Math.sin(e.timer*0.15)*2, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.7;
         ctx.beginPath(); ctx.arc(0, -8, 5, 0, Math.PI*2); ctx.fill();
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
@@ -2522,51 +2565,50 @@
       // Boss4 sub-part HP bars drawn in world-space (outside scale transform)
       if (e.type === 'boss4') {
         const bw = 36, bh = 5;
-        const sc = 1.5; // match boss4 scale
-        // Turret bars (above each turret)
-        const tLx = e.x + (-42) * sc, tLy = e.y + (-12) * sc;
-        const tRx = e.x + ( 42) * sc, tRy = e.y + (-12) * sc;
-        const cLx = e.x + (-52) * sc, cLy = e.y + ( 32) * sc;
-        const cRx = e.x + ( 52) * sc, cRy = e.y + ( 32) * sc;
+        const sc = 1.5;
+        // Part world positions (scaled offsets from new wing positions)
+        const tLx = e.x + (-68)*sc, tLy = e.y + (-2)*sc;
+        const tRx = e.x + ( 68)*sc, tRy = e.y + (-2)*sc;
+        const cLx = e.x + (-76)*sc, cLy = e.y + (30)*sc;
+        const cRx = e.x + ( 76)*sc, cRy = e.y + (30)*sc;
 
         if (!e.turretL.dead) {
-          drawPremiumBar(tLx - bw/2, tLy - 22, bw, bh, Math.max(0, e.turretL.hp / e.turretL.maxHp), '#44aaff');
+          drawPremiumBar(tLx - bw/2, tLy - 26, bw, bh, Math.max(0, e.turretL.hp / e.turretL.maxHp), '#44aaff');
           ctx.fillStyle = '#aaddff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('TUR', tLx, tLy - 25);
+          ctx.fillText('TUR', tLx, tLy - 29);
         } else {
-          drawPremiumBar(tLx - bw/2, tLy - 22, bw, bh, 0, '#555');
+          drawPremiumBar(tLx - bw/2, tLy - 26, bw, bh, 0, '#555');
           ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('\u2717', tLx, tLy - 25);
+          ctx.fillText('\u2717', tLx, tLy - 29);
         }
         if (!e.turretR.dead) {
-          drawPremiumBar(tRx - bw/2, tRy - 22, bw, bh, Math.max(0, e.turretR.hp / e.turretR.maxHp), '#44aaff');
+          drawPremiumBar(tRx - bw/2, tRy - 26, bw, bh, Math.max(0, e.turretR.hp / e.turretR.maxHp), '#44aaff');
           ctx.fillStyle = '#aaddff'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('TUR', tRx, tRy - 25);
+          ctx.fillText('TUR', tRx, tRy - 29);
         } else {
-          drawPremiumBar(tRx - bw/2, tRy - 22, bw, bh, 0, '#555');
+          drawPremiumBar(tRx - bw/2, tRy - 26, bw, bh, 0, '#555');
           ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('\u2717', tRx, tRy - 25);
+          ctx.fillText('\u2717', tRx, tRy - 29);
         }
-        // Cannon bars (below each cannon)
         if (!e.cannonL.dead) {
-          drawPremiumBar(cLx - bw/2, cLy + 14, bw, bh, Math.max(0, e.cannonL.hp / e.cannonL.maxHp), '#ffaa44');
+          drawPremiumBar(cLx - bw/2, cLy + 18, bw, bh, Math.max(0, e.cannonL.hp / e.cannonL.maxHp), '#ffaa44');
           ctx.fillStyle = '#ffd088'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('CAN', cLx, cLy + 11);
+          ctx.fillText('CAN', cLx, cLy + 15);
         } else {
-          drawPremiumBar(cLx - bw/2, cLy + 14, bw, bh, 0, '#555');
+          drawPremiumBar(cLx - bw/2, cLy + 18, bw, bh, 0, '#555');
           ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('\u2717', cLx, cLy + 11);
+          ctx.fillText('\u2717', cLx, cLy + 15);
         }
         if (!e.cannonR.dead) {
-          drawPremiumBar(cRx - bw/2, cRy + 14, bw, bh, Math.max(0, e.cannonR.hp / e.cannonR.maxHp), '#ffaa44');
+          drawPremiumBar(cRx - bw/2, cRy + 18, bw, bh, Math.max(0, e.cannonR.hp / e.cannonR.maxHp), '#ffaa44');
           ctx.fillStyle = '#ffd088'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('CAN', cRx, cRy + 11);
+          ctx.fillText('CAN', cRx, cRy + 15);
         } else {
-          drawPremiumBar(cRx - bw/2, cRy + 14, bw, bh, 0, '#555');
+          drawPremiumBar(cRx - bw/2, cRy + 18, bw, bh, 0, '#555');
           ctx.fillStyle = '#666'; ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-          ctx.fillText('\u2717', cRx, cRy + 11);
+          ctx.fillText('\u2717', cRx, cRy + 15);
         }
-        ctx.textAlign = 'left'; // reset
+        ctx.textAlign = 'left';
       }
     }
 
@@ -2670,21 +2712,19 @@
             document.getElementById('bossHpFill').style.width = (e.hp / e.maxHp * 100) + '%';
           }
 
-          // Turret aiming + firing
+          // Turret aiming + firing (scaled to new wing positions)
           const aliveP = players.filter(p => !p.dead);
           const nearP  = aliveP.sort((a,b) => Math.hypot(a.x-e.x,a.y-e.y) - Math.hypot(b.x-e.x,b.y-e.y))[0] || players[0];
 
           for (const t of [e.turretL, e.turretR]) {
             if (t.dead) continue;
-            // Rotate barrel toward nearest player (positions scaled by 1.5)
-            const tx = e.x + (t === e.turretL ? -42 : 42) * 1.5;
-            const ty = e.y + (-12) * 1.5;
+            const tx = e.x + (t === e.turretL ? -68 : 68) * 1.5;
+            const ty = e.y + (-2) * 1.5;
             const ta = Math.atan2(nearP.y - ty, nearP.x - tx) + Math.PI/2;
             const da = ta - t.angle;
             t.angle += Math.atan2(Math.sin(da), Math.cos(da)) * 0.08;
-            // Shoot every 50 frames
             t.shootTimer++;
-            if (t.shootTimer >= 50) {
+            if (t.shootTimer >= 55) {
               t.shootTimer = 0;
               const ang = t.angle - Math.PI/2;
               spawnEnemyBullet(tx, ty, Math.cos(ang) * 5.5, Math.sin(ang) * 5.5, 'normal');
@@ -2693,13 +2733,13 @@
             }
           }
 
-          // Cannon spread fire (positions scaled by 1.5)
-          for (const [cn, ox] of [[e.cannonL, -52], [e.cannonR, 52]]) {
+          // Cannon spread fire (from rear wing positions)
+          for (const [cn, ox] of [[e.cannonL, -76], [e.cannonR, 76]]) {
             if (cn.dead) continue;
             cn.shootTimer++;
-            if (cn.shootTimer >= 80) {
+            if (cn.shootTimer >= 85) {
               cn.shootTimer = 0;
-              const cx = e.x + ox * 1.5, cy = e.y + 32 * 1.5;
+              const cx = e.x + ox * 1.5, cy = e.y + 30 * 1.5;
               for (let a = -1; a <= 1; a++) {
                 const ang = Math.PI/2 + a * 0.35;
                 spawnEnemyBullet(cx, cy, Math.cos(ang) * 3.5, Math.sin(ang) * 3.5, 'big');
@@ -2869,10 +2909,10 @@
             if (e.type === 'boss4') {
               const sc = 1.5;
               const boss4Parts = [
-                { part: e.turretL, ox: -42*sc, oy: -12*sc, r: 30 },
-                { part: e.turretR, ox:  42*sc, oy: -12*sc, r: 30 },
-                { part: e.cannonL, ox: -52*sc, oy:  32*sc, r: 28 },
-                { part: e.cannonR, ox:  52*sc, oy:  32*sc, r: 28 },
+                { part: e.turretL, ox: -68*sc, oy: -2*sc, r: 28 },
+                { part: e.turretR, ox:  68*sc, oy: -2*sc, r: 28 },
+                { part: e.cannonL, ox: -76*sc, oy: 30*sc, r: 26 },
+                { part: e.cannonR, ox:  76*sc, oy: 30*sc, r: 26 },
               ];
               const dmg = b.type === 'rocket' ? 8 : b.type === 'homing_rocket' ? 5 : 3;
               let hitPart = false;
