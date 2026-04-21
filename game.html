@@ -1210,32 +1210,35 @@
         
         let dx = 0, dy = 0;
         if (i === 0) {
-          if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
-          if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
-          if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
-          if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
-          
+          // Player 1 — WASD only
+          if (keys['KeyA']) dx -= 1;
+          if (keys['KeyD']) dx += 1;
+          if (keys['KeyW']) dy -= 1;
+          if (keys['KeyS']) dy += 1;
+
           if (touchActive) {
             p.x += touchDX;
             p.y += touchDY;
           }
         } else {
           if (isOnline && isHost) {
+            // Online P2: inputs arrive from the client over the network
             const op2 = onlineP2Inputs.keys || {};
-            if (op2['KeyA'] || op2['ArrowLeft']) dx -= 1;
+            if (op2['KeyA'] || op2['ArrowLeft'])  dx -= 1;
             if (op2['KeyD'] || op2['ArrowRight']) dx += 1;
-            if (op2['KeyW'] || op2['ArrowUp']) dy -= 1;
-            if (op2['KeyS'] || op2['ArrowDown']) dy += 1;
-            
+            if (op2['KeyW'] || op2['ArrowUp'])    dy -= 1;
+            if (op2['KeyS'] || op2['ArrowDown'])  dy += 1;
+
             if (onlineP2Inputs.tA) {
                p.x += onlineP2Inputs.tX || 0;
                p.y += onlineP2Inputs.tY || 0;
             }
           } else {
-            if (keys['ArrowLeft']) dx -= 1;
+            // Local co-op Player 2 — Arrow keys only
+            if (keys['ArrowLeft'])  dx -= 1;
             if (keys['ArrowRight']) dx += 1;
-            if (keys['ArrowUp']) dy -= 1;
-            if (keys['ArrowDown']) dy += 1;
+            if (keys['ArrowUp'])    dy -= 1;
+            if (keys['ArrowDown'])  dy += 1;
           }
         }
 
@@ -3323,10 +3326,11 @@
         //    applyNetworkState (35% lerp), so corrections are invisible.
         if (!players[1].dead) {
           let cdx = 0, cdy = 0;
-          if (keys['KeyA'] || keys['ArrowLeft'])  cdx -= 1;
-          if (keys['KeyD'] || keys['ArrowRight']) cdx += 1;
-          if (keys['KeyW'] || keys['ArrowUp'])    cdy -= 1;
-          if (keys['KeyS'] || keys['ArrowDown'])  cdy += 1;
+          // Online client is always Player 2 — uses Arrow keys
+          if (keys['ArrowLeft'])  cdx -= 1;
+          if (keys['ArrowRight']) cdx += 1;
+          if (keys['ArrowUp'])    cdy -= 1;
+          if (keys['ArrowDown'])  cdy += 1;
           if (touchActive) {
             players[1].x += touchDX;
             players[1].y += touchDY;
