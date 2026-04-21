@@ -2021,62 +2021,91 @@
       if (type === 'small') { e.hp = 1; e.maxHp = 1; e.w = 28; e.h = 28; e.speed = 2.6 + wave * 0.12; e.score = 100; e.shootInterval = 14; e.burstMax = 2; e.burstCooldown = 140; }
       if (type === 'medium') { e.hp = 3; e.maxHp = 3; e.w = 36; e.h = 36; e.speed = 2.0 + wave * 0.09; e.score = 250; e.shootInterval = 14; e.burstMax = 3; e.burstCooldown = 130; }
       if (type === 'speeder') { e.hp = 2; e.maxHp = 2; e.w = 24; e.h = 30; e.speed = 7.5 + wave * 0.22; e.score = 180; e.shootInterval = 14; e.burstMax = 3; e.burstCooldown = 150; }
-      if (type === 'tank') { e.hp = 8; e.maxHp = 8; e.w = 44; e.h = 44; e.speed = 1.5 + wave * 0.08; e.score = 400; e.shootInterval = 16; e.burstMax = 4; e.burstCooldown = 130; }
-      if (type === 'sniper') { e.hp = 2; e.maxHp = 2; e.w = 28; e.h = 38; e.speed = 1.5 + wave * 0.08; e.score = 300; e.shootInterval = 12; e.burstMax = 2; e.burstCooldown = 160; }
+      if (type === 'tank')   { e.hp = 8;  e.maxHp = 8;  e.w = 44; e.h = 44; e.speed = 1.5 + wave * 0.08; e.score = 400;  e.shootInterval = 16; e.burstMax = 4;  e.burstCooldown = 130; }
+      if (type === 'sniper')  { e.hp = 2;  e.maxHp = 2;  e.w = 28; e.h = 38; e.speed = 1.5 + wave * 0.08; e.score = 300;  e.shootInterval = 12; e.burstMax = 2;  e.burstCooldown = 160; }
       // ── Boss enemies ──
-      // Cooldowns slashed and bursts increased for high-aggression
-      if (type === 'boss') { e.hp = 40 + wave * 20; e.maxHp = 40 + wave * 20; e.w = 90; e.h = 70; e.speed = 2.6; e.score = 2000; e.shootInterval = 14; e.burstMax = 6; e.burstCooldown = 75; }
-      if (type === 'boss2') { e.hp = 60 + wave * 25; e.maxHp = 60 + wave * 25; e.w = 100; e.h = 80; e.speed = 3.2; e.score = 3000; e.shootInterval = 10; e.burstMax = 8; e.burstCooldown = 65; }
+      if (type === 'boss')  { e.hp = 40 + wave * 20; e.maxHp = 40 + wave * 20; e.w = 90;  e.h = 70; e.speed = 2.6; e.score = 2000; e.shootInterval = 14; e.burstMax = 6;  e.burstCooldown = 75; }
+      if (type === 'boss2') { e.hp = 60 + wave * 25; e.maxHp = 60 + wave * 25; e.w = 100; e.h = 80; e.speed = 3.2; e.score = 3000; e.shootInterval = 10; e.burstMax = 8;  e.burstCooldown = 65; }
       if (type === 'boss3') { e.hp = 80 + wave * 30; e.maxHp = 80 + wave * 30; e.w = 110; e.h = 90; e.speed = 3.8; e.speed2 = 5.5; e.score = 5000; e.shootInterval = 8; e.burstMax = 10; e.burstCooldown = 55; }
+
+      // ── CO-OP DIFFICULTY MULTIPLIER ──────────────────────────────────
+      // When 2 players are active, the game ramps up significantly:
+      // Enemies become tankier, faster, and shoot more aggressively.
+      if (coopMode) {
+        e.hp     = Math.ceil(e.hp * 1.6);    // +60% HP
+        e.maxHp  = e.hp;
+        e.speed  *= 1.2;                      // +20% speed
+        e.speed2 = e.speed2 ? e.speed2 * 1.2 : undefined;
+        e.shootInterval = Math.max(5, Math.floor(e.shootInterval * 0.75)); // 25% faster firing
+        e.burstMax      = e.burstMax + 2;     // +2 bullets per burst
+        e.burstCooldown = Math.max(30, Math.floor(e.burstCooldown * 0.75)); // 25% shorter cooldown
+        e.score  = Math.floor(e.score * 1.5); // +50% score reward
+      }
+
       enemies.push(e);
     }
 
     function spawnWave() {
       const bossWave = wave % 5 === 0;
+      // In co-op: more enemies, higher cap, boss gets elite escorts
+      const coopBonus = coopMode ? 1 : 0;
+      const MAX_ENEMIES = coopMode ? 40 : 25;
+
       if (bossWave) {
         const bossType = wave % 15 === 0 ? 'boss3' : (wave % 10 === 0 ? 'boss2' : 'boss');
         spawnEnemy(bossType, W / 2, -100, 'boss');
-        showWaveAnnounce('⚠ BOSS WAVE ' + wave + ' ⚠');
+
+        if (coopMode) {
+          // Boss arrives with elite tank escorts in co-op!
+          const escortCount = 2 + Math.floor(wave / 5);
+          for (let i = 0; i < Math.min(escortCount, 6); i++) {
+            const ex = 60 + i * 70 + Math.random() * 30;
+            spawnEnemy(i % 2 === 0 ? 'tank' : 'speeder', ex, -180 - i * 40,
+              i % 2 === 0 ? 'hover' : 'straight');
+          }
+          showWaveAnnounce('⚠ BOSS WAVE ' + wave + ' ⚠\n⚡ ELITE MODE ⚡');
+        } else {
+          showWaveAnnounce('⚠ BOSS WAVE ' + wave + ' ⚠');
+        }
       } else {
-        showWaveAnnounce('WAVE ' + wave);
-        const MAX_ENEMIES = 25;
+        showWaveAnnounce(coopMode ? 'CO-OP WAVE ' + wave : 'WAVE ' + wave);
         let spawned = 0;
 
-        // Small — scales up to 10
-        const smallCount = Math.min(4 + wave * 2, 10);
+        // Small — scales up to 10 (+4 in co-op)
+        const smallCount = Math.min(4 + wave * 2 + coopBonus * 4, 10 + coopBonus * 4);
         for (let i = 0; i < smallCount && spawned < MAX_ENEMIES; i++) {
           const x = 40 + (i % 6) * 65 + Math.random() * 20;
           const y = -60 - Math.floor(i / 6) * 50;
           spawnEnemy('small', x, y, i % 2 === 0 ? 'zigzag' : 'straight');
           spawned++;
         }
-        // Medium from wave 2 — scales up to 6
+        // Medium from wave 2 — scales up to 5 (+3 in co-op)
         if (wave >= 2) {
-          const medCount = Math.min(1 + wave, 5);
+          const medCount = Math.min(1 + wave + coopBonus * 2, 5 + coopBonus * 3);
           for (let i = 0; i < medCount && spawned < MAX_ENEMIES; i++) {
             spawnEnemy('medium', 80 + i * 90 + Math.random() * 30, -140 - i * 45, 'hover');
             spawned++;
           }
         }
-        // Speeder from wave 3 — scales up to 5
+        // Speeder from wave 3 — scales up to 4 (+3 in co-op)
         if (wave >= 3) {
-          const spdCount = Math.min(wave - 1, 4);
+          const spdCount = Math.min(wave - 1 + coopBonus * 2, 4 + coopBonus * 3);
           for (let i = 0; i < spdCount && spawned < MAX_ENEMIES; i++) {
             spawnEnemy('speeder', 50 + i * 120 + Math.random() * 30, -60 - i * 30, 'straight');
             spawned++;
           }
         }
-        // Tank from wave 4 — scales up to 4
+        // Tank from wave 4 — scales up to 3 (+2 in co-op)
         if (wave >= 4) {
-          const tankCount = Math.min(wave - 2, 3);
+          const tankCount = Math.min(wave - 2 + coopBonus, 3 + coopBonus * 2);
           for (let i = 0; i < tankCount && spawned < MAX_ENEMIES; i++) {
             spawnEnemy('tank', 100 + i * 150 + Math.random() * 20, -120 - i * 40, 'hover');
             spawned++;
           }
         }
-        // Sniper from wave 5 — scales up to 3
+        // Sniper from wave 5 — scales up to 3 (+2 in co-op)
         if (wave >= 5) {
-          const snpCount = Math.min(wave - 3, 3);
+          const snpCount = Math.min(wave - 3 + coopBonus, 3 + coopBonus * 2);
           for (let i = 0; i < snpCount && spawned < MAX_ENEMIES; i++) {
             spawnEnemy('sniper', 70 + i * 160 + Math.random() * 30, -100 - i * 50, 'snipe');
             spawned++;
@@ -3193,27 +3222,46 @@
         } else {
           waveTimer = 0;
           // During boss fights, periodically send small reinforcements
+          // Co-op: reinforcements are more frequent and heavier
           if (activeBoss) {
             bossReinforceTimer++;
-            if (bossReinforceTimer >= BOSS_REINFORCE_INTERVAL) {
+            const reinforceInterval = coopMode
+              ? Math.floor(BOSS_REINFORCE_INTERVAL * 0.55)  // 45% faster in co-op
+              : BOSS_REINFORCE_INTERVAL;
+            if (bossReinforceTimer >= reinforceInterval) {
               bossReinforceTimer = 0;
-              const count = 2 + Math.floor(wave / 5); // more reinforcements in later waves
-              for (let i = 0; i < Math.min(count, 5); i++) {
+              const count = coopMode
+                ? 3 + Math.floor(wave / 4)   // more reinforcements in co-op
+                : 2 + Math.floor(wave / 5);
+              for (let i = 0; i < Math.min(count, coopMode ? 8 : 5); i++) {
                 const x = 40 + Math.random() * (W - 80);
                 const y = -40 - i * 30;
-                spawnEnemy('small', x, y, Math.random() < 0.5 ? 'zigzag' : 'straight');
+                // In co-op: mix in tanks with the small reinforcements
+                const rType = coopMode && i % 3 === 2 ? 'tank' : 'small';
+                spawnEnemy(rType, x, y, Math.random() < 0.5 ? 'zigzag' : 'straight');
               }
-              showWaveAnnounce('⚡ REINFORCEMENTS!');
+              showWaveAnnounce(coopMode ? '⚡ ELITE REINFORCEMENTS!' : '⚡ REINFORCEMENTS!');
             }
           }
         }
 
         globalLaserTimer--;
         if (globalLaserTimer <= 0 && gameRunning) {
-          globalLaserTimer = 500 + Math.random() * 600;
-          let tp = players.filter(p=>!p.dead).sort(() => Math.random() - 0.5)[0] || players[0];
-          const lx = tp.x + (Math.random() * 80 - 40);
-          spawnEnemyLaser(lx, -20, lx, H + 20, 100, 'random');
+          // In co-op: lasers hit more often (shorter interval)
+          const laserBase = coopMode ? 350 : 500;
+          globalLaserTimer = laserBase + Math.random() * 400;
+          // In co-op: fire TWO simultaneous lasers targeting each player
+          if (coopMode) {
+            const alivePlayers = players.filter(p => !p.dead);
+            for (const tp of alivePlayers) {
+              const lx = tp.x + (Math.random() * 60 - 30);
+              spawnEnemyLaser(lx, -20, lx, H + 20, 100, 'random');
+            }
+          } else {
+            let tp = players.filter(p => !p.dead).sort(() => Math.random() - 0.5)[0] || players[0];
+            const lx = tp.x + (Math.random() * 80 - 40);
+            spawnEnemyLaser(lx, -20, lx, H + 20, 100, 'random');
+          }
         }
 
         updatePlayer();
