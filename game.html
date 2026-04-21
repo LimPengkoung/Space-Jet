@@ -3055,6 +3055,10 @@
             if (Array.isArray(src)) for (const item of src) dest.push(item);
         }
         syncArray(enemies,         st.e);
+        // Restore slim enemy field aliases (_t → type, _pat → pattern) for drawEnemy
+        for (const e of enemies) {
+            if (e._t !== undefined) { e.type = e._t; e.pattern = e._pat; }
+        }
         syncArray(playerBullets,   st.pb);
         syncArray(enemyBullets,    st.eb);
         syncArray(enemyLasers,     st.el);
@@ -3189,11 +3193,38 @@
         if (isOnline && peerConn) {
            if (frameCount % 3 === 0) {
                try {
+                   // Slim each enemy to only the properties that change every frame.
+                   // Static props (w, h, speed, score, maxHp, etc.) are reconstructed
+                   // on the client side from the type string, reducing payload ~50%.
+                   const slimEnemies = enemies.map(e => ({
+                     _t: e.type, _pat: e.pattern,
+                     x: e.x, y: e.y, hp: e.hp, timer: e.timer, phase: e.phase,
+                     shootTimer: e.shootTimer, burstCount: e.burstCount,
+                     burstCooldown: e.burstCooldown, dead: e.dead,
+                     deathAnim: e.deathAnim || 0, hitFlash: e.hitFlash || 0,
+                     // Preserve boss-specific or rarely-set fields
+                     laserCd: e.laserCd, burstMode: e.burstMode,
+                     w: e.w, h: e.h, maxHp: e.maxHp, speed: e.speed, speed2: e.speed2,
+                     shootInterval: e.shootInterval, burstMax: e.burstMax,
+                   }));
+                   // Slim player bullets: only what drawPlayerBullets needs
+                   const slimPB = playerBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, color: b.color, w: b.w, h: b.h }));
+                   // Slim enemy bullets: only what drawEnemyBullets needs
+                   const slimEB = enemyBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, r: b.r }));
+                   // Slim player state
+                   const slimPlayers = players.map(p => ({
+                     x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, shields: p.shields,
+                     gunLevel: p.gunLevel, baseGunLevel: p.baseGunLevel, gunTimer: p.gunTimer,
+                     shootInterval: p.shootInterval, invincible: p.invincible, thrustAnim: p.thrustAnim,
+                     dead: p.dead, deathAnim: p.deathAnim || 0, laserTargetY: p.laserTargetY || 0,
+                     shield: p.shield, shieldAnim: p.shieldAnim || 0,
+                   }));
                    peerConn.send({
                       t: 's',
                       p: {
-                         p: players, e: enemies, pb: playerBullets, eb: enemyBullets, el: enemyLasers, 
-                         gd: gunDrops, hp: heartPacks, sd: shieldDrops, ip: invinciblePacks,
+                         p: slimPlayers, e: slimEnemies, pb: slimPB, eb: slimEB,
+                         el: enemyLasers, gd: gunDrops, hp: heartPacks,
+                         sd: shieldDrops, ip: invinciblePacks,
                          sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode },
                          ne: netEvents
                       }
@@ -3204,7 +3235,22 @@
         }
       } else {
         // Client Mode
-        updateParticles(); // Update client-created particles visually
+        // ── Extrapolate bullet & enemy positions at full 60fps between host packets ──
+        // Bullets move in straight lines so linear extrapolation is exact.
+        for (const b of playerBullets) {
+          b.x += b.vx || 0;
+          b.y += b.vy || 0;
+        }
+        for (const b of enemyBullets) {
+          b.x += b.vx || 0;
+          b.y += b.vy || 0;
+        }
+        // Advance enemy laser warning timers locally so the warning glow animates smoothly
+        for (const L of enemyLasers) {
+          if (L.warningTimer > 0) L.warningTimer--;
+          else if (L.fireTimer > 0) L.fireTimer--;
+        }
+        updateParticles();
         if (peerConn && frameCount % 3 === 0) {
             try {
                 if(peerConn.open !== false) {
