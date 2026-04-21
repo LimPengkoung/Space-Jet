@@ -1583,14 +1583,14 @@
       musicNodes.push(masterGain);
 
       // BPM & timing
-      const BPM = mode.startsWith('boss') ? 145 : 118;
+      const BPM = mode.startsWith('boss') ? 145 : 132;
       const beat = 60 / BPM;
-      const bar = beat * 4;
+      const bar  = beat * 4;
 
-      // ── Bass line ──
-      // Regular: heroic orchestral bass — rising 5th movement (E1→B1 power, then A1 resolve)
-      let bassNotes = [41.20, 0, 61.74, 0, 55.00, 49.00, 41.20, 0];
-      if (mode === 'boss')  bassNotes = [41.20, 41.20, 49.00, 41.20, 41.20, 41.20, 55.00, 41.20];
+      // ── Bass line ──────────────────────────────────────────────────
+      // Regular: sawtooth octave-pump in E minor — E1-E2-B1 power 5th
+      let bassNotes = [41.20, 0, 82.41, 41.20, 61.74, 0, 82.41, 0];
+      if (mode === 'boss')       bassNotes = [41.20, 41.20, 49.00, 41.20, 41.20, 41.20, 55.00, 41.20];
       else if (mode === 'boss2') bassNotes = [36.71, 36.71, 0, 41.20, 49.00, 49.00, 0, 36.71];
       else if (mode === 'boss3') bassNotes = [32.70, 49.00, 32.70, 0, 32.70, 49.00, 32.70, 55.00];
 
@@ -1598,27 +1598,29 @@
         if (!musicPlaying) return;
         bassNotes.forEach((freq, i) => {
           if (freq === 0) return;
-          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : i * beat * 0.5); // Boss plays 16th notes
+          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : i * beat * 0.5);
           const o = audioCtx.createOscillator();
           const g = audioCtx.createGain();
           o.connect(g); g.connect(masterGain);
-          o.type = mode.startsWith('boss') ? 'square' : 'triangle'; // triangle = warm orchestral brass
+          o.type = mode.startsWith('boss') ? 'square' : 'sawtooth';
           o.frequency.value = freq;
           g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.7, t + 0.04);  // stronger attack for impact
-          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.7));
-          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.7));
+          g.gain.linearRampToValueAtTime(0.65, t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.45));
+          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 0.3 : beat * 0.45));
           musicNodes.push(o, g);
         });
         const next = startTime + (mode.startsWith('boss') ? beat * 2 : bar);
         setTimeout(() => scheduleBass(next), (next - audioCtx.currentTime - 0.1) * 1000);
       }
 
-      // ── Melody ──
-      let melodyNotes = [0, 329.63, 0, 0, 0, 392.00, 0, 0, 0, 329.63, 0, 0, 0, 261.63, 0, 0];
-      if (mode === 'boss') melodyNotes = [0, 493.88, 0, 466.16, 0, 440.00, 0, 415.30]; // descending chromatic siren pattern
-      else if (mode === 'boss2') melodyNotes = [0, 587.33, 0, 659.25, 0, 0, 587.33, 659.25]; // jumpy
-      else if (mode === 'boss3') melodyNotes = [523.25, 0, 659.25, 0, 783.99, 0, 659.25, 0]; // ominous arpeggio
+      // ── Melody (heroic 2-bar fanfare in E minor) ───────────────────
+      // Bar 1: E4·G4·B4·G4·E4  |  Bar 2: A4·G4·E4·D4·E4 (ascending rise, resolving descent)
+      let melodyNotes = [329.63, 0, 392.00, 0, 493.88, 392.00, 329.63, 0,
+                         440.00, 0, 392.00, 0, 329.63, 0, 293.66, 329.63];
+      if (mode === 'boss')       melodyNotes = [0, 493.88, 0, 466.16, 0, 440.00, 0, 415.30];
+      else if (mode === 'boss2') melodyNotes = [0, 587.33, 0, 659.25, 0, 0, 587.33, 659.25];
+      else if (mode === 'boss3') melodyNotes = [523.25, 0, 659.25, 0, 783.99, 0, 659.25, 0];
 
       function scheduleMelody(startTime) {
         if (!musicPlaying) return;
@@ -1631,47 +1633,49 @@
           o.type = mode.startsWith('boss') ? 'sawtooth' : 'square';
           o.frequency.value = freq;
           g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(mode.startsWith('boss') ? 0.4 : 0.3, t + 0.05);
-          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 2 : beat * 0.8));
-          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 2 : beat));
+          g.gain.linearRampToValueAtTime(mode.startsWith('boss') ? 0.4 : 0.28, t + 0.05);
+          g.gain.exponentialRampToValueAtTime(0.001, t + (mode.startsWith('boss') ? beat * 2 : beat * 1.1));
+          o.start(t); o.stop(t + (mode.startsWith('boss') ? beat * 2 : beat * 1.1));
           musicNodes.push(o, g);
         });
         const next = startTime + (mode.startsWith('boss') ? bar : bar * 2);
         setTimeout(() => scheduleMelody(next), (next - audioCtx.currentTime - 0.1) * 1000);
       }
 
-      // ── Arp / counter-melody ──
-      let arpNotes = [164.81, 196.00, 246.94, 329.63, 246.94, 196.00];
-      if (mode === 'boss') arpNotes = [440, 523.2, 587.3, 659.3, 587.3, 523.2, 440, 392]; // fast soaring arpeggio
+      // ── Arp / counter-melody ───────────────────────────────────────
+      // Regular: E minor hexatonic — E3-G3-B3-E4-G4-E4-B3-G3 (flowing loop)
+      let arpNotes = [164.81, 196.00, 246.94, 329.63, 392.00, 329.63, 246.94, 196.00];
+      if (mode === 'boss')       arpNotes = [440, 523.2, 587.3, 659.3, 587.3, 523.2, 440, 392];
       else if (mode === 'boss2') arpNotes = [587.3, 698.46, 880, 1046.5, 880, 698.46, 587.3, 523.25];
       else if (mode === 'boss3') arpNotes = [392, 493.88, 587.33, 783.99, 587.33, 493.88, 392, 329.63];
 
       function scheduleArp(startTime) {
         if (!musicPlaying) return;
         arpNotes.forEach((freq, i) => {
-          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : (i % 6) * beat * 0.333);
+          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : (i % 8) * beat * 0.333);
           const o = audioCtx.createOscillator();
           const g = audioCtx.createGain();
           o.connect(g); g.connect(masterGain);
           o.type = mode.startsWith('boss') ? 'sawtooth' : 'sine';
           o.frequency.value = freq;
           g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.25, t + 0.05);
-          g.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.25);
-          o.start(t); o.stop(t + beat * 0.25);
+          g.gain.linearRampToValueAtTime(0.18, t + 0.04);
+          g.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.28);
+          o.start(t); o.stop(t + beat * 0.28);
           musicNodes.push(o, g);
         });
         const next = startTime + (mode.startsWith('boss') ? beat * 2 : bar);
         setTimeout(() => scheduleArp(next), (next - audioCtx.currentTime - 0.1) * 1000);
       }
 
-      // ── Kick drum ──
+      // ── Kick drum ──────────────────────────────────────────────────
       function scheduleKick(startTime) {
         if (!musicPlaying) return;
-        let kickOffsets = [0, beat * 1.5, beat * 2, beat * 3.5];
-        if (mode === 'boss') kickOffsets = [0, beat * 0.5, beat * 1.5, beat * 2, beat * 2.5, beat * 3.5]; // Double-kick madness
+        // Regular: 4-on-the-floor march (every beat) — drives the heroic momentum
+        let kickOffsets = [0, beat, beat * 2, beat * 3];
+        if (mode === 'boss')       kickOffsets = [0, beat * 0.5, beat * 1.5, beat * 2, beat * 2.5, beat * 3.5];
         else if (mode === 'boss2') kickOffsets = [0, beat * 1.0, beat * 1.5, beat * 2.5, beat * 3.0, beat * 3.5];
-        else if (mode === 'boss3') kickOffsets = [0, beat * 0.75, beat * 1.5, beat * 2.25, beat * 3.0, beat * 3.75]; // triplet feel
+        else if (mode === 'boss3') kickOffsets = [0, beat * 0.75, beat * 1.5, beat * 2.25, beat * 3.0, beat * 3.75];
 
         kickOffsets.forEach(offset => {
           const t = startTime + offset;
@@ -1679,9 +1683,9 @@
           const g = audioCtx.createGain();
           o.connect(g); g.connect(masterGain);
           o.type = 'sine';
-          o.frequency.setValueAtTime(mode.startsWith('boss') ? 140 : 100, t);
+          o.frequency.setValueAtTime(mode.startsWith('boss') ? 140 : 110, t);
           o.frequency.exponentialRampToValueAtTime(0.001, t + 0.4);
-          g.gain.setValueAtTime(1.0, t);
+          g.gain.setValueAtTime(1.1, t);
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
           o.start(t); o.stop(t + 0.4);
           musicNodes.push(o, g);
@@ -1690,23 +1694,24 @@
         setTimeout(() => scheduleKick(next), (next - audioCtx.currentTime - 0.1) * 1000);
       }
 
-      // ── Hi-hat ──
+      // ── Hi-hat ─────────────────────────────────────────────────────
       function scheduleHat(startTime) {
         if (!musicPlaying) return;
-        const count = mode.startsWith('boss') ? 16 : 8; // 16th notes for boss
+        const count = mode.startsWith('boss') ? 16 : 8;
         for (let i = 0; i < count; i++) {
-          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : i * beat * 0.5 + (i % 2 === 1 ? 0.05 : 0));
-          const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.05, audioCtx.sampleRate);
+          const t = startTime + (mode.startsWith('boss') ? i * beat * 0.25 : i * beat * 0.5 + (i % 2 === 1 ? 0.02 : 0));
+          const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04, audioCtx.sampleRate);
           const data = buf.getChannelData(0);
           for (let j = 0; j < data.length; j++) data[j] = (Math.random() * 2 - 1);
           const src = audioCtx.createBufferSource();
-          const g = audioCtx.createGain();
+          const g   = audioCtx.createGain();
           const filter = audioCtx.createBiquadFilter();
-          filter.type = 'highpass'; filter.frequency.value = mode.startsWith('boss') ? 4000 : 6000; // dirtier for boss
+          filter.type = 'highpass';
+          filter.frequency.value = mode.startsWith('boss') ? 4000 : 7000; // crisp clean hat for heroic
           src.buffer = buf;
           src.connect(filter); filter.connect(g); g.connect(masterGain);
-          g.gain.setValueAtTime(mode.startsWith('boss') ? 0.2 : 0.15, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+          g.gain.setValueAtTime(mode.startsWith('boss') ? 0.2 : 0.12, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
           src.start(t);
           musicNodes.push(src, g, filter);
         }
