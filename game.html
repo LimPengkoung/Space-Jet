@@ -501,6 +501,7 @@
     let peerConn = null;
     let netEvents = [];
     let onlineP2Inputs = { keys: {}, jX: 0, jY: 0, tA: false, s: false };
+    let networkStateReady = false;
     
     function cancelOnline() {
        if (peer) { peer.destroy(); peer = null; }
@@ -3041,14 +3042,22 @@
     const BOSS_REINFORCE_INTERVAL = 300; // send reinforcements every 5 seconds
 
     function applyNetworkState(st) {
-        players = st.p;
-        enemies = st.e;
+        // Reconstruct arrays by merging properties onto existing objects where possible
+        // to avoid breaking stale JS references held by the render loop.
+        // For players, merge in-place so the draw functions always see live objects.
+        if (Array.isArray(st.p)) {
+            for (let i = 0; i < st.p.length && i < players.length; i++) {
+                Object.assign(players[i], st.p[i]);
+            }
+        }
+        // Replace bulk arrays directly (they are only iterated, never cached by reference)
+        enemies       = st.e;
         playerBullets = st.pb;
-        enemyBullets = st.eb;
-        enemyLasers = st.el;
-        gunDrops = st.gd;
-        heartPacks = st.hp;
-        shieldDrops = st.sd;
+        enemyBullets  = st.eb;
+        enemyLasers   = st.el;
+        gunDrops      = st.gd;
+        heartPacks    = st.hp;
+        shieldDrops   = st.sd;
         invinciblePacks = st.ip;
         
         score = st.sc.s; kills = st.sc.k; wave = st.sc.w; waveTimer = st.sc.wt;
@@ -3067,6 +3076,9 @@
         document.getElementById('killDisplay').textContent = kills;
         document.getElementById('waveDisplay').textContent = wave;
         updateHealthUI();
+
+        // Signal that at least one full state has been received — unblock client rendering
+        networkStateReady = true;
     }
 
     function gameLoop(timestamp) {
@@ -3103,6 +3115,17 @@
       }
 
       drawBackground();
+
+      // ── CLIENT: show waiting screen until first host packet arrives ──
+      if (!isHost && !networkStateReady) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#00ffc8';
+        ctx.font = "bold 16px 'Orbitron', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillText('CONNECTING TO HOST...', W / 2, H / 2);
+        return;
+      }
 
       if (isHost) {
         // Wave management — next wave triggers immediately after all enemies are killed
@@ -3306,8 +3329,22 @@
       document.getElementById('pauseOverlay').style.display = 'none';
       document.getElementById('pauseBtnMain').classList.add('visible');
       stopMusic();
-      startMusic();
-      spawnWave();
+
+      // Only the HOST runs game logic and spawns the first wave.
+      // The CLIENT waits for state from the host — do NOT call spawnWave() on client.
+      if (isHost) {
+        startMusic();
+        spawnWave();
+        networkStateReady = true; // Host is always ready
+      } else {
+        // Client starts music and waits for first host packet
+        networkStateReady = false;
+        enemies.length = 0;
+        enemyBullets.length = 0;
+        playerBullets.length = 0;
+        startMusic();
+      }
+
       animId = requestAnimationFrame(gameLoop);
     }
 
