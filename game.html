@@ -504,6 +504,7 @@
     let networkStateReady = false;
     let hostSeq = 0;       // Host increments on every snapshot send
     let clientLastSeq = 0; // Client tracks highest seq received to discard old packets
+    let _prevEnemyData = []; // Enemy positions from last packet, for velocity estimation
     
     function cancelOnline() {
        if (peer) { peer.destroy(); peer = null; }
@@ -3052,23 +3053,48 @@
     const BOSS_REINFORCE_INTERVAL = 300; // send reinforcements every 5 seconds
 
     function applyNetworkState(st) {
-        // Players: merge in-place so draw functions always see the same live object references.
+        // ── Player reconciliation ──────────────────────────────────────────
+        // Player 0 (host / P1): snap directly to authoritative state.
+        // Player 1 (client / P2): use client-side prediction reconciliation —
+        //   lerp our locally-predicted position toward the host's authoritative
+        //   position so corrections are invisible rather than causing a snap.
         if (Array.isArray(st.p)) {
             for (let i = 0; i < st.p.length && i < players.length; i++) {
-                Object.assign(players[i], st.p[i]);
+                const src = st.p[i];
+                if (!isHost && i === 1 && !players[i].dead) {
+                    // Soft-correct P2: pull 35% toward host position per tick.
+                    const px = players[i].x + (src.x - players[i].x) * 0.35;
+                    const py = players[i].y + (src.y - players[i].y) * 0.35;
+                    Object.assign(players[i], src);
+                    players[i].x = px; players[i].y = py;
+                } else {
+                    Object.assign(players[i], src);
+                }
             }
         }
-        // All game arrays are declared as `const`, so we CANNOT reassign them with `=`.
-        // Instead, clear each array and repopulate it in-place from the host snapshot.
+        // ── Sync bulk arrays in-place (all declared as const) ─────────────
         function syncArray(dest, src) {
             dest.length = 0;
             if (Array.isArray(src)) for (const item of src) dest.push(item);
         }
-        syncArray(enemies,         st.e);
-        // Restore slim enemy field aliases (_t → type, _pat → pattern) for drawEnemy
-        for (const e of enemies) {
+        syncArray(enemies, st.e);
+        // Restore slim enemy field aliases (_t → type, _pat → pattern) for drawEnemy.
+        // Also compute per-frame velocity estimate from the previous known position
+        // so the client can extrapolate enemy movement between host packets.
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
             if (e._t !== undefined) { e.type = e._t; e.pattern = e._pat; }
+            const prev = _prevEnemyData[i];
+            if (prev && !e.dead) {
+                // Divide by 2 because host sends every 2 frames
+                e._evx = (e.x - prev.x) / 2;
+                e._evy = (e.y - prev.y) / 2;
+            } else {
+                e._evx = 0; e._evy = 0;
+            }
         }
+        // Save positions for next packet's velocity computation
+        _prevEnemyData = enemies.map(e => ({ x: e.x, y: e.y }));
         syncArray(playerBullets,   st.pb);
         syncArray(enemyBullets,    st.eb);
         syncArray(enemyLasers,     st.el);
@@ -3239,26 +3265,56 @@
            }
         }
       } else {
-        // Client Mode
-        // ── Extrapolate bullet & enemy positions at full 60fps between host packets ──
-        // Bullets move in straight lines so linear extrapolation is exact.
-        for (const b of playerBullets) {
-          b.x += b.vx || 0;
-          b.y += b.vy || 0;
+        // ══════════════════════════════════════════════════════════════
+        // CLIENT MODE — smooth prediction & extrapolation
+        // ══════════════════════════════════════════════════════════════
+
+        // 1. CLIENT-SIDE PREDICTION: move Player 2 (our ship) locally every
+        //    frame so control feels instant, with no round-trip latency.
+        //    The host's authoritative position is reconciled softly in
+        //    applyNetworkState (35% lerp), so corrections are invisible.
+        if (!players[1].dead) {
+          let cdx = 0, cdy = 0;
+          if (keys['KeyA'] || keys['ArrowLeft'])  cdx -= 1;
+          if (keys['KeyD'] || keys['ArrowRight']) cdx += 1;
+          if (keys['KeyW'] || keys['ArrowUp'])    cdy -= 1;
+          if (keys['KeyS'] || keys['ArrowDown'])  cdy += 1;
+          if (touchActive) {
+            players[1].x += touchDX;
+            players[1].y += touchDY;
+          }
+          if (cdx !== 0 && cdy !== 0) { cdx *= 0.707; cdy *= 0.707; }
+          const spd = players[1].speed || 9;
+          players[1].x = Math.max(players[1].w / 2, Math.min(W - players[1].w / 2, players[1].x + cdx * spd));
+          players[1].y = Math.max(players[1].h / 2, Math.min(H - players[1].h / 2, players[1].y + cdy * spd));
+          players[1].thrustAnim = (players[1].thrustAnim || 0) + 1;
         }
-        for (const b of enemyBullets) {
-          b.x += b.vx || 0;
-          b.y += b.vy || 0;
+
+        // 2. BULLET EXTRAPOLATION: bullets travel in straight lines,
+        //    so advancing by vx/vy each frame is perfectly accurate.
+        for (const b of playerBullets) { b.x += b.vx || 0; b.y += b.vy || 0; }
+        for (const b of enemyBullets)  { b.x += b.vx || 0; b.y += b.vy || 0; }
+
+        // 3. ENEMY POSITION EXTRAPOLATION: glide enemies toward where
+        //    they are heading using velocity estimated from last two packets.
+        for (const e of enemies) {
+          if (!e.dead) {
+            e.x += e._evx || 0;
+            e.y += e._evy || 0;
+          }
         }
-        // Advance enemy laser warning timers locally so the warning glow animates smoothly
+
+        // 4. LOCAL TIMER ANIMATIONS
         for (const L of enemyLasers) {
           if (L.warningTimer > 0) L.warningTimer--;
           else if (L.fireTimer > 0) L.fireTimer--;
         }
         updateParticles();
-        if (peerConn && frameCount % 3 === 0) {
+
+        // 5. SEND INPUTS to host every 2 frames (30/sec)
+        if (peerConn && frameCount % 2 === 0) {
             try {
-                if(peerConn.open !== false) {
+                if (peerConn.open !== false) {
                    peerConn.send({
                       t: 'i',
                       p: { keys: keys, tX: touchDX, tY: touchDY, tA: touchActive }
