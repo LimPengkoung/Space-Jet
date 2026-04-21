@@ -3835,8 +3835,6 @@
             players[1].x += touchDX;
             players[1].y += touchDY;
           }
-          // Reset client-side touch deltas after consumption
-          touchDX = 0; touchDY = 0;
           if (cdx !== 0 && cdy !== 0) { cdx *= 0.707; cdy *= 0.707; }
           const spd = players[1].speed || 9;
           players[1].x = Math.max(players[1].w / 2, Math.min(W - players[1].w / 2, players[1].x + cdx * spd));
@@ -3866,6 +3864,7 @@
         updateParticles();
 
         // 5. SEND INPUTS to host every 2 frames (30/sec)
+        //    NOTE: send touchDX/DY BEFORE resetting them so the host receives the actual movement.
         if (peerConn && frameCount % 2 === 0) {
             try {
                 if (peerConn.open !== false) {
@@ -3879,6 +3878,8 @@
                 }
             } catch(err) { console.error('Client send error:', err); }
         }
+        // Reset touch deltas AFTER sending so the host received real values this frame
+        touchDX = 0; touchDY = 0;
       }
 
       // Draw order
