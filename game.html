@@ -730,8 +730,10 @@
       e.preventDefault();
       for (const t of e.changedTouches) {
         const pos = screenToCanvas(t.clientX, t.clientY);
-        // In solo mode any touch → P1 joystick. In co-op: left half → P1, right half → P2.
-        const isRightSide = coopMode && pos.x > W / 2;
+        // Split screen only for LOCAL co-op (both players on same device).
+        // Online co-op: each player has their own device → single full-screen joystick.
+        const isLocalCoop = coopMode && !isOnline;
+        const isRightSide = isLocalCoop && pos.x > W / 2;
         if (!isRightSide && touchId === null) {
           // P1 joystick
           touchId = t.identifier;
@@ -3458,8 +3460,8 @@
       if (joystickVisible && touchActive) {
         drawSingleJoystick(joystickBaseX, joystickBaseY, joystickKnobX, joystickKnobY, '#00ffc8');
       }
-      // P2 joystick (yellow) — only shown in local co-op
-      if (coopMode && joystick2Visible && touch2Active) {
+      // P2 joystick (yellow) — only shown in LOCAL co-op (same device), NOT online
+      if (coopMode && !isOnline && joystick2Visible && touch2Active) {
         drawSingleJoystick(joystick2BaseX, joystick2BaseY, joystick2KnobX, joystick2KnobY, '#ffcc00');
       }
     }
@@ -3900,7 +3902,7 @@
       drawInvincibleHUD();
       drawTouchJoystick();
       // Draw faint center-line divider in local co-op on touch device so players see their zone
-      if (coopMode && !isOnline && (touchActive || touch2Active || joystickVisible || joystick2Visible)) {
+      if (coopMode && !isOnline && (joystickVisible || joystick2Visible)) {
         ctx.save();
         ctx.globalAlpha = 0.06;
         ctx.strokeStyle = '#ffffff';
