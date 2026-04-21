@@ -2112,17 +2112,18 @@
       if (type === 'boss3') { e.hp = 80 + wave * 30; e.maxHp = 80 + wave * 30; e.w = 110; e.h = 90; e.speed = 3.8; e.speed2 = 5.5; e.score = 5000; e.shootInterval = 8; e.burstMax = 10; e.burstCooldown = 55; }
 
       // ── CO-OP DIFFICULTY MULTIPLIER ──────────────────────────────────
-      // When 2 players are active, the game ramps up significantly:
-      // Enemies become tankier, faster, and shoot more aggressively.
+      // 2-player scaling: tankier enemies, slightly faster, but NOT bullet-hell density.
+      // The two players together already have 2x firepower, so enemies need more HP
+      // but should NOT spam bullets — that just makes the game unfair, not challenging.
       if (coopMode) {
-        e.hp     = Math.ceil(e.hp * 1.6);    // +60% HP
+        e.hp     = Math.ceil(e.hp * 1.3);    // +30% HP (down from 60%)
         e.maxHp  = e.hp;
-        e.speed  *= 1.2;                      // +20% speed
-        e.speed2 = e.speed2 ? e.speed2 * 1.2 : undefined;
-        e.shootInterval = Math.max(5, Math.floor(e.shootInterval * 0.75)); // 25% faster firing
-        e.burstMax      = e.burstMax + 2;     // +2 bullets per burst
-        e.burstCooldown = Math.max(30, Math.floor(e.burstCooldown * 0.75)); // 25% shorter cooldown
-        e.score  = Math.floor(e.score * 1.5); // +50% score reward
+        e.speed  *= 1.1;                      // +10% speed (down from 20%)
+        e.speed2 = e.speed2 ? e.speed2 * 1.1 : undefined;
+        e.shootInterval = Math.max(8, Math.floor(e.shootInterval * 0.9));  // 10% faster (was 25%)
+        e.burstMax      = e.burstMax + 1;     // +1 bullet per burst (was +2)
+        e.burstCooldown = Math.max(50, Math.floor(e.burstCooldown * 0.88)); // 12% shorter (was 25%)
+        e.score  = Math.floor(e.score * 1.5); // +50% score reward (unchanged)
       }
 
       enemies.push(e);
