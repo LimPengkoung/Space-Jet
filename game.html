@@ -711,43 +711,61 @@
 
     // ─── INPUT ─────────────────────────────────────────────────────
     const keys = {};
+    // ── P1 Joystick (left half of screen) ──────────────────────────
     let touchDX = 0, touchDY = 0, touchActive = false;
     let touchId = null, touchLastX = 0, touchLastY = 0;
     let joystickBaseX = 0, joystickBaseY = 0, joystickKnobX = 0, joystickKnobY = 0;
     let joystickVisible = false;
+
+    // ── P2 Joystick (right half of screen, local co-op only) ────────
+    let touch2DX = 0, touch2DY = 0, touch2Active = false;
+    let touch2Id = null, touch2LastX = 0, touch2LastY = 0;
+    let joystick2BaseX = 0, joystick2BaseY = 0, joystick2KnobX = 0, joystick2KnobY = 0;
+    let joystick2Visible = false;
 
     document.addEventListener('keydown', e => { keys[e.code] = true; e.preventDefault && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && e.preventDefault(); if (e.code === 'Escape') togglePause(); });
     document.addEventListener('keyup', e => { keys[e.code] = false; });
 
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
-      if (touchId === null) {
-        const t = e.changedTouches[0];
-        touchId = t.identifier;
+      for (const t of e.changedTouches) {
         const pos = screenToCanvas(t.clientX, t.clientY);
-        touchLastX = pos.x;
-        touchLastY = pos.y;
-        touchActive = true;
-        touchDX = 0; touchDY = 0;
-        joystickBaseX = pos.x;
-        joystickBaseY = pos.y;
-        joystickKnobX = pos.x;
-        joystickKnobY = pos.y;
-        joystickVisible = true;
+        // In solo mode any touch → P1 joystick. In co-op: left half → P1, right half → P2.
+        const isRightSide = coopMode && pos.x > W / 2;
+        if (!isRightSide && touchId === null) {
+          // P1 joystick
+          touchId = t.identifier;
+          touchLastX = pos.x; touchLastY = pos.y;
+          touchActive = true; touchDX = 0; touchDY = 0;
+          joystickBaseX = pos.x; joystickBaseY = pos.y;
+          joystickKnobX = pos.x; joystickKnobY = pos.y;
+          joystickVisible = true;
+        } else if (isRightSide && touch2Id === null) {
+          // P2 joystick (local co-op only)
+          touch2Id = t.identifier;
+          touch2LastX = pos.x; touch2LastY = pos.y;
+          touch2Active = true; touch2DX = 0; touch2DY = 0;
+          joystick2BaseX = pos.x; joystick2BaseY = pos.y;
+          joystick2KnobX = pos.x; joystick2KnobY = pos.y;
+          joystick2Visible = true;
+        }
       }
     }, { passive: false });
 
     canvas.addEventListener('touchmove', e => {
       e.preventDefault();
       for (const t of e.changedTouches) {
+        const pos = screenToCanvas(t.clientX, t.clientY);
         if (t.identifier === touchId) {
-          const pos = screenToCanvas(t.clientX, t.clientY);
           touchDX += pos.x - touchLastX;
           touchDY += pos.y - touchLastY;
-          touchLastX = pos.x;
-          touchLastY = pos.y;
-          joystickKnobX = pos.x;
-          joystickKnobY = pos.y;
+          touchLastX = pos.x; touchLastY = pos.y;
+          joystickKnobX = pos.x; joystickKnobY = pos.y;
+        } else if (t.identifier === touch2Id) {
+          touch2DX += pos.x - touch2LastX;
+          touch2DY += pos.y - touch2LastY;
+          touch2LastX = pos.x; touch2LastY = pos.y;
+          joystick2KnobX = pos.x; joystick2KnobY = pos.y;
         }
       }
     }, { passive: false });
@@ -755,9 +773,9 @@
     canvas.addEventListener('touchend', e => {
       for (const t of e.changedTouches) {
         if (t.identifier === touchId) {
-          touchId = null; touchActive = false;
-          touchDX = 0; touchDY = 0;
-          joystickVisible = false;
+          touchId = null; touchActive = false; touchDX = 0; touchDY = 0; joystickVisible = false;
+        } else if (t.identifier === touch2Id) {
+          touch2Id = null; touch2Active = false; touch2DX = 0; touch2DY = 0; joystick2Visible = false;
         }
       }
     });
@@ -765,9 +783,9 @@
     canvas.addEventListener('touchcancel', e => {
       for (const t of e.changedTouches) {
         if (t.identifier === touchId) {
-          touchId = null; touchActive = false;
-          touchDX = 0; touchDY = 0;
-          joystickVisible = false;
+          touchId = null; touchActive = false; touchDX = 0; touchDY = 0; joystickVisible = false;
+        } else if (t.identifier === touch2Id) {
+          touch2Id = null; touch2Active = false; touch2DX = 0; touch2DY = 0; joystick2Visible = false;
         }
       }
     });
@@ -1266,11 +1284,15 @@
                p.y += onlineP2Inputs.tY || 0;
             }
           } else {
-            // Local co-op Player 2 — Arrow keys only
+            // Local co-op Player 2 — Arrow keys OR right-side joystick
             if (keys['ArrowLeft'])  dx -= 1;
             if (keys['ArrowRight']) dx += 1;
             if (keys['ArrowUp'])    dy -= 1;
             if (keys['ArrowDown'])  dy += 1;
+            if (touch2Active) {
+              p.x += touch2DX;
+              p.y += touch2DY;
+            }
           }
         }
 
@@ -3391,29 +3413,55 @@
       });
     }
     // ─── VIRTUAL JOYSTICK DRAWING ─────────────────────────────────
-    function drawTouchJoystick() {
-      if (!joystickVisible || !touchActive) return;
+    function drawSingleJoystick(baseX, baseY, knobX, knobY, color) {
       ctx.save();
-      ctx.globalAlpha = 0.15;
-      ctx.strokeStyle = '#00ffc8';
+      // Outer ring
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(baseX, baseY, 48, 0, Math.PI * 2);
+      ctx.stroke();
+      // Inner ring
+      ctx.globalAlpha = 0.10;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(baseX, baseY, 24, 0, Math.PI * 2);
+      ctx.stroke();
+      // Stick line
+      ctx.globalAlpha = 0.20;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(joystickBaseX, joystickBaseY, 40, 0, Math.PI * 2);
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(knobX, knobY);
       ctx.stroke();
-      ctx.globalAlpha = 0.12;
+      // Knob fill
+      ctx.globalAlpha = 0.40;
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14;
       ctx.beginPath();
-      ctx.moveTo(joystickBaseX, joystickBaseY);
-      ctx.lineTo(joystickKnobX, joystickKnobY);
-      ctx.stroke();
-      ctx.globalAlpha = 0.25;
-      ctx.fillStyle = '#00ffc8';
-      ctx.shadowColor = '#00ffc8';
-      ctx.shadowBlur = 10;
+      ctx.arc(knobX, knobY, 18, 0, Math.PI * 2);
+      ctx.fill();
+      // Knob inner bright core
+      ctx.globalAlpha = 0.70;
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(joystickKnobX, joystickKnobY, 12, 0, Math.PI * 2);
+      ctx.arc(knobX, knobY, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.restore();
+    }
+
+    function drawTouchJoystick() {
+      // P1 joystick (cyan)
+      if (joystickVisible && touchActive) {
+        drawSingleJoystick(joystickBaseX, joystickBaseY, joystickKnobX, joystickKnobY, '#00ffc8');
+      }
+      // P2 joystick (yellow) — only shown in local co-op
+      if (coopMode && joystick2Visible && touch2Active) {
+        drawSingleJoystick(joystick2BaseX, joystick2BaseY, joystick2KnobX, joystick2KnobY, '#ffcc00');
+      }
     }
 
     function showWaveAnnounce(text, fromNet = false) {
@@ -3713,6 +3761,9 @@
         }
 
         updatePlayer();
+        // Reset accumulated touch deltas after they've been consumed this frame
+        touchDX = 0; touchDY = 0;
+        touch2DX = 0; touch2DY = 0;
         updateEnemies();
         updateBullets();
         updateParticles();
@@ -3777,10 +3828,13 @@
           if (keys['ArrowRight']) cdx += 1;
           if (keys['ArrowUp'])    cdy -= 1;
           if (keys['ArrowDown'])  cdy += 1;
+          // Online client P2: the single joystick controls their ship
           if (touchActive) {
             players[1].x += touchDX;
             players[1].y += touchDY;
           }
+          // Reset client-side touch deltas after consumption
+          touchDX = 0; touchDY = 0;
           if (cdx !== 0 && cdy !== 0) { cdx *= 0.707; cdy *= 0.707; }
           const spd = players[1].speed || 9;
           players[1].x = Math.max(players[1].w / 2, Math.min(W - players[1].w / 2, players[1].x + cdx * spd));
@@ -3845,6 +3899,28 @@
 
       drawInvincibleHUD();
       drawTouchJoystick();
+      // Draw faint center-line divider in local co-op on touch device so players see their zone
+      if (coopMode && !isOnline && (touchActive || touch2Active || joystickVisible || joystick2Visible)) {
+        ctx.save();
+        ctx.globalAlpha = 0.06;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 10]);
+        ctx.beginPath();
+        ctx.moveTo(W / 2, 0);
+        ctx.lineTo(W / 2, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // P1 / P2 side labels
+        ctx.globalAlpha = 0.12;
+        ctx.font = "bold 10px 'Orbitron', monospace";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#44aaff';
+        ctx.fillText('P1', W / 4, H - 20);
+        ctx.fillStyle = '#ffcc00';
+        ctx.fillText('P2', 3 * W / 4, H - 20);
+        ctx.restore();
+      }
       updateGunUI();
     }
 
