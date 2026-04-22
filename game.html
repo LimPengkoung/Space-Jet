@@ -2909,6 +2909,39 @@
               }
             }
           }
+          // Also check boss4 sub-parts outside its main bounding box
+          for (const e of enemies) {
+            if (e.dead || e.type !== 'boss4') continue;
+            const sc = 1.5;
+            const boss4Parts = [
+              { part: e.turretL, ox: -68*sc, oy: -2*sc, r: 28 },
+              { part: e.turretR, ox:  68*sc, oy: -2*sc, r: 28 },
+              { part: e.cannonL, ox: -76*sc, oy: 30*sc,  r: 26 },
+              { part: e.cannonR, ox:  76*sc, oy: 30*sc,  r: 26 },
+            ];
+            for (const { part, ox, oy, r } of boss4Parts) {
+              if (part.dead) continue;
+              const px = e.x + ox, py = e.y + oy;
+              // laser is a vertical beam at p.x from p.y upward
+              if (Math.abs(px - p.x) < r && py < p.y) {
+                part.hp -= 0.6;
+                e.hp -= 0.2;
+                e.hitFlash = 2;
+                if (Math.random() < 0.3) spawnHitEffect(p.x + (Math.random() * 6 - 3), py);
+                if (part.hp <= 0) {
+                  part.dead = true;
+                  part.hp = 0;
+                  spawnExplosion(px, py, 40, false);
+                  playSfx('enemyDie');
+                }
+                // Update laser endpoint to show beam stopping at part
+                const partBottomY = py + r;
+                if (partBottomY > closestHitY) {
+                  closestHitY = partBottomY;
+                }
+              }
+            }
+          }
           p.laserTargetY = closestHitY;
           if (hitEnemy) {
             hitEnemy.hp -= 0.6;
@@ -2922,6 +2955,44 @@
       // Player bullets vs enemies
       for (let bi = playerBullets.length - 1; bi >= 0; bi--) {
         const b = playerBullets[bi];
+
+        // ── Boss4 sub-part hit check (wings extend outside main bounding box) ──
+        let hitBoss4Part = false;
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const e = enemies[ei];
+          if (e.dead || e.type !== 'boss4') continue;
+          const sc = 1.5;
+          const boss4Parts = [
+            { part: e.turretL, ox: -68*sc, oy: -2*sc, r: 28 },
+            { part: e.turretR, ox:  68*sc, oy: -2*sc, r: 28 },
+            { part: e.cannonL, ox: -76*sc, oy: 30*sc,  r: 26 },
+            { part: e.cannonR, ox:  76*sc, oy: 30*sc,  r: 26 },
+          ];
+          for (const { part, ox, oy, r } of boss4Parts) {
+            if (part.dead) continue;
+            const px = e.x + ox, py = e.y + oy;
+            if (Math.hypot(b.x - px, b.y - py) < r) {
+              const dmg = b.type === 'rocket' ? 8 : b.type === 'homing_rocket' ? 5 : 3;
+              part.hp -= dmg;
+              e.hp -= 1;
+              e.hitFlash = 4;
+              e._lastHitOwner = b.owner;
+              spawnHitEffect(b.x, b.y);
+              playSfx('enemyHit');
+              if (part.hp <= 0) {
+                part.dead = true;
+                part.hp = 0;
+                spawnExplosion(px, py, 40, false);
+                playSfx('enemyDie');
+              }
+              playerBullets.splice(bi, 1);
+              hitBoss4Part = true;
+              break;
+            }
+          }
+          if (hitBoss4Part) break;
+        }
+        if (hitBoss4Part) continue;
 
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
           const e = enemies[ei];
