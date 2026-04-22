@@ -1646,20 +1646,33 @@
         o2.start(now); o2.stop(now + 0.72);
 
       } else if (type === 'boltFire') {
-        // Sharp electric crack — the moment the bolt releases
-        const o = audioCtx.createOscillator();
-        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.06, audioCtx.sampleRate);
+        // Massive, heavy laser blast
+        const o1 = audioCtx.createOscillator();
+        const o2 = audioCtx.createOscillator();
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate);
         const data = buf.getChannelData(0);
-        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 1.5);
         const noise = audioCtx.createBufferSource();
         noise.buffer = buf; noise.connect(g);
-        o.connect(g);
-        g.gain.setValueAtTime(0.22, now);
-        g.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-        o.type = 'sine';
-        o.frequency.setValueAtTime(2800, now);
-        o.frequency.exponentialRampToValueAtTime(400, now + 0.07);
-        o.start(now); o.stop(now + 0.07);
+        
+        o1.connect(g);
+        o2.connect(g);
+        
+        g.gain.setValueAtTime(0.35, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        
+        // High pitched laser sweep
+        o1.type = 'square';
+        o1.frequency.setValueAtTime(1200, now);
+        o1.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+        
+        // Heavy bass rumble
+        o2.type = 'sawtooth';
+        o2.frequency.setValueAtTime(150, now);
+        o2.frequency.exponentialRampToValueAtTime(20, now + 0.4);
+        
+        o1.start(now); o1.stop(now + 0.45);
+        o2.start(now); o2.stop(now + 0.45);
         noise.start(now);
 
       } else if (type === 'deflect') {
@@ -2174,13 +2187,13 @@
             let nvx, nvy;
             if (nearest) {
               const ang = Math.atan2(nearest.y - b.y, nearest.x - b.x);
-              const spd = 35; // Massive speed for the large beam
+              const spd = 18; // Slower speed so players can see the massive beam
               nvx = Math.cos(ang) * spd;
               nvy = Math.sin(ang) * spd;
             } else {
-              // No enemies: reflect straight upward fast
+              // No enemies: reflect straight upward
               nvx = b.vx * -0.5;
-              nvy = -35;
+              nvy = -18;
             }
             enemyBullets.splice(bi, 1);
             playerBullets.push({ x: b.x, y: b.y, vx: nvx, vy: nvy,
@@ -2531,26 +2544,37 @@
         const plb = e.pendingLaserBolt;
         const frac = 1 - plb.timer / 45; // 0→1 as charge progresses
         const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.6); // fast flicker
-        const ringR = 20 + frac * 18; // ring grows as it charges
+        // Ring starts large and zooms in to condense energy
+        const ringR = 80 * (1 - frac) + 10; 
+        
         // Pulsing danger ring around enemy
         ctx.save();
         ctx.shadowColor = '#cc00ff';
         ctx.shadowBlur = 16 + pulse * 12;
-        ctx.strokeStyle = `rgba(${Math.round(180 + frac * 75)},0,255,${0.5 + frac * 0.5})`;
+        ctx.strokeStyle = `rgba(${Math.round(180 + frac * 75)},0,255,${0.2 + frac * 0.8})`;
         ctx.lineWidth = 2 + frac * 2;
         ctx.beginPath(); ctx.arc(0, 0, ringR / (e.type === 'boss4' ? 1.5 : e.type === 'boss3' ? 1.2 : e.type === 'boss2' ? 1.1 : 1), 0, Math.PI * 2); ctx.stroke();
-        // Direction tracer — a dashed line showing where the bolt will go
+        // Long flash laser sight pointing at player
         const spd = Math.hypot(plb.vx, plb.vy) || 1;
         const dnx = plb.vx / spd, dny = plb.vy / spd;
-        const tracerLen = 60 + frac * 60;
-        ctx.setLineDash([6, 5]);
-        ctx.strokeStyle = `rgba(220,80,255,${0.3 + frac * 0.5})`;
-        ctx.lineWidth = 1.5;
+        const tracerLen = 2000; // extend off screen
+        ctx.setLineDash([]);
+        
+        // Outer flash glow focuses (starts thick, narrows down)
+        ctx.strokeStyle = `rgba(200,50,255,${(0.2 + frac * 0.6) * pulse})`;
+        ctx.lineWidth = 15 * (1 - frac) + 2;
         ctx.beginPath();
-        ctx.moveTo(dnx * 18, dny * 18);
+        ctx.moveTo(dnx * 20, dny * 20);
         ctx.lineTo(dnx * tracerLen, dny * tracerLen);
         ctx.stroke();
-        ctx.setLineDash([]);
+
+        // Inner bright laser core also focuses
+        ctx.strokeStyle = `rgba(255,200,255,${0.4 + frac * 0.6})`;
+        ctx.lineWidth = 6 * (1 - frac) + 1;
+        ctx.beginPath();
+        ctx.moveTo(dnx * 20, dny * 20);
+        ctx.lineTo(dnx * tracerLen, dny * tracerLen);
+        ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
       }
@@ -3154,6 +3178,8 @@
       const dx = target.x - e.x, dy = target.y - e.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const nx = dx / dist, ny = dy / dist;
+      
+      const laserActive = enemies.some(en => en.pendingLaserBolt != null);
 
       if (e.laserBurst) {
         spawnEnemyLaser(e.x, e.y, target.x, target.y);
@@ -3169,8 +3195,8 @@
       } else if (e.type === 'medium') {
         spawnEnemyBullet(e.x, e.y, nx * 4.0 - 0.8, ny * 4.0, 'normal');
         spawnEnemyBullet(e.x, e.y, nx * 4.0 + 0.8, ny * 4.0, 'normal');
-        // 15% chance: queue a charged laser_bolt
-        if (Math.random() < 0.15 && !e.pendingLaserBolt) {
+        // 35% chance: queue a charged laser_bolt
+        if (Math.random() < 0.35 && !e.pendingLaserBolt && !laserActive) {
           e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
         }
 
@@ -3185,7 +3211,7 @@
 
       } else if (e.type === 'sniper') {
         // Snipers charge then fire — queue a pending laser_bolt
-        if (!e.pendingLaserBolt) {
+        if (!e.pendingLaserBolt && !laserActive) {
           e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
         }
         return; // don't call playSfx('enemyShoot') yet
@@ -3205,7 +3231,7 @@
         } else {
           // Boss phase 2: big aimed shot now + charged laser_bolt after warning
           spawnEnemyBullet(e.x, e.y, nx * 6.5, ny * 6.5, 'big');
-          if (!e.pendingLaserBolt) {
+          if (!e.pendingLaserBolt && !laserActive) {
             e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
           }
         }
@@ -3228,7 +3254,7 @@
             const ang = Math.atan2(ny, nx) + a * 0.20;
             spawnEnemyBullet(e.x, e.y, Math.cos(ang) * 4.5, Math.sin(ang) * 4.5, 'big');
           }
-          if (!e.pendingLaserBolt) {
+          if (!e.pendingLaserBolt && !laserActive) {
             e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
           }
         }
