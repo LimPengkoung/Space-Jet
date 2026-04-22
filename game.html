@@ -2736,6 +2736,36 @@
             document.getElementById('bossHpFill').style.width = (e.hp / e.maxHp * 100) + '%';
           }
 
+          // ── Sub-part repair system ──────────────────────────────────
+          const allPartsDead = e.turretL.dead && e.turretR.dead && e.cannonL.dead && e.cannonR.dead;
+          if (allPartsDead) {
+            // Start repair countdown
+            if (e.repairTimer === undefined) e.repairTimer = 0;
+            e.repairTimer++;
+            // Flash warning in last 120 frames
+            if (e.repairTimer > 480 && e.repairTimer % 30 < 15) {
+              e.hitFlash = 1; // pulse the boss body as a warning
+            }
+            if (e.repairTimer >= 600) { // 10 seconds at 60fps
+              e.repairTimer = undefined;
+              // Restore all parts at 50% HP
+              const sc = 1.5;
+              e.turretL = { hp: 10, maxHp: 20, dead: false, angle: Math.PI / 2, shootTimer: 30 };
+              e.turretR = { hp: 10, maxHp: 20, dead: false, angle: Math.PI / 2, shootTimer: 0 };
+              e.cannonL  = { hp: 14, maxHp: 28, dead: false, shootTimer: 60 };
+              e.cannonR  = { hp: 14, maxHp: 28, dead: false, shootTimer: 0 };
+              // Dramatic repair burst
+              spawnExplosion(e.x + (-68)*sc, e.y + (-2)*sc, 35, false);
+              spawnExplosion(e.x + ( 68)*sc, e.y + (-2)*sc, 35, false);
+              spawnExplosion(e.x + (-76)*sc, e.y + (30)*sc, 35, false);
+              spawnExplosion(e.x + ( 76)*sc, e.y + (30)*sc, 35, false);
+              playSfx('gunPickup');
+              showWaveAnnounce('⚠ CARRIER REPAIRED\nSUB-SYSTEMS RESTORED!');
+            }
+          } else {
+            e.repairTimer = undefined; // reset if any part is still alive
+          }
+
           // Turret aiming + firing (scaled to new wing positions)
           const aliveP = players.filter(p => !p.dead);
           const nearP  = aliveP.sort((a,b) => Math.hypot(a.x-e.x,a.y-e.y) - Math.hypot(b.x-e.x,b.y-e.y))[0] || players[0];
@@ -2863,6 +2893,14 @@
             spawnEnemyBullet(e.x, e.y, Math.cos(ang) * 4.5, Math.sin(ang) * 4.5, 'big');
           }
         }
+
+      } else if (e.type === 'boss4') {
+        // Fallback fire: all sub-parts destroyed — fire slow single aimed shot from hull
+        const allDead4 = e.turretL.dead && e.turretR.dead && e.cannonL.dead && e.cannonR.dead;
+        if (allDead4) {
+          spawnEnemyBullet(e.x, e.y, nx * 3.5, ny * 3.5, 'normal');
+        }
+        // (Parts alive: they fire independently in the update loop above)
 
       } else if (e.type === 'boss3') {
         const p = Math.floor(e.timer / 120) % 4;
