@@ -476,20 +476,26 @@
       ">
         <button id="deflectBtn" ontouchstart="triggerDeflect(players[0]); event.preventDefault();" style="
           font-family: 'Orbitron', monospace;
-          font-size: 10px;
           font-weight: 700;
-          letter-spacing: 2px;
           color: #00ffee;
           background: rgba(0,255,238,0.12);
           border: 2px solid rgba(0,255,238,0.5);
-          padding: 10px 22px;
-          border-radius: 50px;
-          text-transform: uppercase;
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 2px;
           box-shadow: 0 0 12px rgba(0,255,238,0.25);
           cursor: pointer;
           user-select: none;
           -webkit-user-select: none;
-        ">⟳ DEFLECT</button>
+        ">
+          <span style="font-size: 26px; line-height: 1; margin-top: 4px;">⟳</span>
+          <span style="font-size: 9px; letter-spacing: 1px;">DEFLECT</span>
+        </button>
       </div>
 
     </div>
