@@ -373,6 +373,10 @@
         left: 12px;
         transform: none;
       }
+
+      #deflectBtnWrapper {
+        display: block !important;
+      }
     }
 
     @media (max-width: 600px) {
@@ -392,7 +396,7 @@
       }
     }
   </style>
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer crossorigin="anonymous"></script>
 
 <body>
   <div id="gameWrapper">
@@ -459,6 +463,34 @@
             <div id="gunTimerFill2" style="width:100%;height:100%;background:#ffcc00"></div>
           </div>
         </div>
+      </div>
+
+      <!-- Mobile Deflect Button (touch devices only) -->
+      <div id="deflectBtnWrapper" style="
+        display: none;
+        position: absolute;
+        bottom: 58px;
+        left: 50%;
+        transform: translateX(-50%);
+        pointer-events: all;
+        z-index: 10;
+      ">
+        <button id="deflectBtn" ontouchstart="triggerDeflect(players[0]); event.preventDefault();" style="
+          font-family: 'Orbitron', monospace;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          color: #00ffee;
+          background: rgba(0,255,238,0.12);
+          border: 2px solid rgba(0,255,238,0.5);
+          padding: 10px 22px;
+          border-radius: 50px;
+          text-transform: uppercase;
+          box-shadow: 0 0 12px rgba(0,255,238,0.25);
+          cursor: pointer;
+          user-select: none;
+          -webkit-user-select: none;
+        ">⟳ DEFLECT</button>
       </div>
 
     </div>
@@ -723,7 +755,14 @@
     let joystick2BaseX = 0, joystick2BaseY = 0, joystick2KnobX = 0, joystick2KnobY = 0;
     let joystick2Visible = false;
 
-    document.addEventListener('keydown', e => { keys[e.code] = true; e.preventDefault && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && e.preventDefault(); if (e.code === 'Escape') togglePause(); });
+    document.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      e.preventDefault && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code) && e.preventDefault();
+      if (e.code === 'Escape') togglePause();
+      // Deflect triggers
+      if (e.code === 'Space' && gameRunning && !isPaused) triggerDeflect(players[0]);
+      if ((e.code === 'Enter' || e.code === 'ShiftRight') && gameRunning && !isPaused) triggerDeflect(players[1]);
+    });
     document.addEventListener('keyup', e => { keys[e.code] = false; });
 
     canvas.addEventListener('touchstart', e => {
@@ -993,7 +1032,9 @@
     }
 
     function spawnEnemyBullet(x, y, vx, vy, type = 'normal') {
-      enemyBullets.push({ x, y, vx, vy, r: type === 'big' ? 6 : 4, type });
+      // laser_bolt: stored radius=3 but drawn as a long needle
+      const r = type === 'big' ? 6 : type === 'laser_bolt' ? 3 : 4;
+      enemyBullets.push({ x, y, vx, vy, r, type });
     }
 
     function updateBullets() {
@@ -1025,11 +1066,14 @@
             b.vy -= 0.2;
           }
         }
+        if (b.type === 'deflected') { b.prevX = b.x; b.prevY = b.y; }
         b.x += b.vx; b.y += b.vy;
-        if (b.y < -40 || b.x < -20 || b.x > W + 20 || b.y > H + 40) playerBullets.splice(i, 1);
+        if (b.y < -300 || b.x < -300 || b.x > W + 300 || b.y > H + 300) playerBullets.splice(i, 1);
       }
       for (let i = enemyBullets.length - 1; i >= 0; i--) {
         const b = enemyBullets[i];
+        // Track previous position for laser_bolt swept collision
+        if (b.type === 'laser_bolt') { b.prevX = b.x; b.prevY = b.y; }
         b.x += b.vx; b.y += b.vy;
         if (b.y > H + 20 || b.x < -20 || b.x > W + 20 || b.y < -20) enemyBullets.splice(i, 1);
       }
@@ -1101,6 +1145,32 @@
             ctx.fillStyle = '#ffaa00'; ctx.beginPath(); ctx.arc(0, 12 + Math.random() * 6, 4, 0, Math.PI * 2); ctx.fill();
           }
           ctx.restore();
+        } else if (b.type === 'deflected') {
+          // HUGE DBZ-STYLE BEAM BLAST
+          const ang  = Math.atan2(b.vy, b.vx);
+          const len  = 400; // massive length
+          const tail = 280; // massive tail
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          ctx.rotate(ang);
+          ctx.shadowColor = b.color;
+          ctx.shadowBlur  = 35;
+          const g = ctx.createLinearGradient(-tail, 0, len, 0);
+          g.addColorStop(0,   'rgba(0,255,238,0)');
+          g.addColorStop(0.2, 'rgba(0,255,238,0.9)');
+          g.addColorStop(0.8, '#ffffff');
+          g.addColorStop(1,   'rgba(0,255,238,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          // Draw the main thick beam body
+          ctx.ellipse(len/2, 0, len/2 + tail, 30 + Math.random()*15, 0, 0, Math.PI*2);
+          ctx.fill();
+          // Hot white core inside the beam
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.ellipse(len/2, 0, len/2 + tail - 40, 12 + Math.random()*6, 0, 0, Math.PI*2);
+          ctx.fill();
+          ctx.restore();
         } else {
           ctx.shadowColor = b.color;
           ctx.shadowBlur = 10;
@@ -1138,18 +1208,48 @@
 
     function drawEnemyBullets() {
       for (const b of enemyBullets) {
-        ctx.shadowColor = b.type === 'big' ? '#ff4060' : '#ff8020';
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = b.type === 'big' ? '#ff2040' : '#ffaa40';
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-        ctx.fill();
-        // inner bright core
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        if (b.type === 'laser_bolt') {
+          // Draw as a fast elongated glowing needle in travel direction
+          const ang  = Math.atan2(b.vy, b.vx);
+          const len  = 52; // total length of the needle
+          const tail = 32; // tail fade length
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          ctx.rotate(ang);
+          // Outer glow
+          ctx.shadowColor = '#cc44ff';
+          ctx.shadowBlur  = 14;
+          // Main body gradient (head=white, tail=purple, fades out)
+          const g = ctx.createLinearGradient(-tail, 0, len * 0.5, 0);
+          g.addColorStop(0,   'rgba(160,0,255,0)');
+          g.addColorStop(0.3, 'rgba(200,80,255,0.9)');
+          g.addColorStop(0.8, '#dd88ff');
+          g.addColorStop(1,   '#ffffff');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          // Needle shape: pointed head, tapered tail
+          ctx.moveTo(len * 0.5, 0);        // tip
+          ctx.lineTo(len * 0.1, -2.5);     // upper shoulder
+          ctx.lineTo(-tail, -1);           // upper tail
+          ctx.lineTo(-tail,  1);           // lower tail
+          ctx.lineTo(len * 0.1,  2.5);     // lower shoulder
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.shadowColor = b.type === 'big' ? '#ff4060' : '#ff8020';
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = b.type === 'big' ? '#ff2040' : '#ffaa40';
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          // inner bright core
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
       }
     }
 
@@ -1233,6 +1333,10 @@
         p.dead = false;
         p.deathAnim = 0;
         p.laserTargetY = 0;
+        p.deflectCooldown = 0;   // frames until next deflect is ready (0 = ready)
+        p.deflectWindow = 0;     // active deflect frames remaining
+        p.deflectRingR = 0;      // radius for expanding ring visual
+        p.deflectHit = 0;        // flash frames on a successful deflect
       });
       updateGunUI();
     }
@@ -1318,6 +1422,13 @@
 
         p.thrustAnim++;
         if (p.invincible > 0) p.invincible--;
+
+        // ── Deflect cooldown tick ──
+        if (p.deflectCooldown > 0) p.deflectCooldown--;
+        if (p.deflectWindow  > 0) p.deflectWindow--;
+        if (p.deflectRingR   > 0) p.deflectRingR += 4;   // ring expands outward
+        if (p.deflectRingR   > 80) p.deflectRingR = 0;    // fade out when large
+        if (p.deflectHit     > 0) p.deflectHit--;
 
         if (p.gunTimer > 0) {
           p.gunTimer--;
@@ -1516,6 +1627,56 @@
         g.gain.exponentialRampToValueAtTime(0.001, now + 1.25);
         o.frequency.setValueAtTime(100, now); o.frequency.exponentialRampToValueAtTime(600, now + 1.2);
         o.type = 'sawtooth'; o.start(now); o.stop(now + 1.25);
+
+      } else if (type === 'boltCharge') {
+        // Rising alarm whine — warns player a laser_bolt is incoming
+        const o1 = audioCtx.createOscillator(); // main rising whine
+        const o2 = audioCtx.createOscillator(); // pulsing alarm undertone
+        o1.connect(g); o2.connect(g);
+        g.gain.setValueAtTime(0.04, now);
+        g.gain.linearRampToValueAtTime(0.13, now + 0.68);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
+        o1.type = 'sine';
+        o1.frequency.setValueAtTime(600, now);
+        o1.frequency.exponentialRampToValueAtTime(2200, now + 0.68);
+        o2.type = 'square';
+        o2.frequency.setValueAtTime(12, now);
+        o2.frequency.linearRampToValueAtTime(35, now + 0.68);
+        o1.start(now); o1.stop(now + 0.72);
+        o2.start(now); o2.stop(now + 0.72);
+
+      } else if (type === 'boltFire') {
+        // Sharp electric crack — the moment the bolt releases
+        const o = audioCtx.createOscillator();
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.06, audioCtx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 3);
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buf; noise.connect(g);
+        o.connect(g);
+        g.gain.setValueAtTime(0.22, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+        o.type = 'sine';
+        o.frequency.setValueAtTime(2800, now);
+        o.frequency.exponentialRampToValueAtTime(400, now + 0.07);
+        o.start(now); o.stop(now + 0.07);
+        noise.start(now);
+
+      } else if (type === 'deflect') {
+        // Satisfying parry ping — metallic crack + bright harmonic ring
+        const o1 = audioCtx.createOscillator();
+        const o2 = audioCtx.createOscillator();
+        o1.connect(g); o2.connect(g);
+        g.gain.setValueAtTime(0.28, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        o1.type = 'sine';
+        o1.frequency.setValueAtTime(1400, now);
+        o1.frequency.exponentialRampToValueAtTime(900, now + 0.35);
+        o2.type = 'triangle';
+        o2.frequency.setValueAtTime(2800, now);
+        o2.frequency.exponentialRampToValueAtTime(1400, now + 0.2);
+        o1.start(now); o1.stop(now + 0.35);
+        o2.start(now); o2.stop(now + 0.2);
 
       } else if (type === 'enemyHit') {
         const o = audioCtx.createOscillator();
@@ -1980,6 +2141,115 @@
       }
     }
 
+    // ─── DEFLECT SYSTEM ────────────────────────────────────────────
+    const DEFLECT_COOLDOWN  = 120; // 2 seconds at 60fps
+    const DEFLECT_WINDOW    = 8;   // 8-frame active parry window
+    const DEFLECT_RADIUS    = 52;  // pixels from ship center that counts as a deflect
+    const DEFLECT_DMG       = 20;  // damage deflected massive beam deals to bosses
+
+    function triggerDeflect(p) {
+      if (!p || p.dead || p.deflectCooldown > 0 || p.deflectWindow > 0) return;
+      p.deflectCooldown = DEFLECT_COOLDOWN;
+      p.deflectWindow   = DEFLECT_WINDOW;
+      p.deflectRingR    = 18; // start ring small
+      playSfx('shieldBreak'); // reuse crackle sound
+    }
+
+    function updateDeflect() {
+      if (!isHost) return; // only host runs physics
+      players.forEach(p => {
+        if (p.dead || p.deflectWindow <= 0) return;
+        for (let bi = enemyBullets.length - 1; bi >= 0; bi--) {
+          const b = enemyBullets[bi];
+          // Only laser_bolt bullets can be deflected
+          if (b.type !== 'laser_bolt') continue;
+          if (Math.hypot(b.x - p.x, b.y - p.y) >= DEFLECT_RADIUS) continue;
+            // Reverse bullet direction toward nearest enemy
+            let nearest = null, nearDist = Infinity;
+            for (const e of enemies) {
+              if (e.dead) continue;
+              const d = Math.hypot(e.x - b.x, e.y - b.y);
+              if (d < nearDist) { nearDist = d; nearest = e; }
+            }
+            let nvx, nvy;
+            if (nearest) {
+              const ang = Math.atan2(nearest.y - b.y, nearest.x - b.x);
+              const spd = 35; // Massive speed for the large beam
+              nvx = Math.cos(ang) * spd;
+              nvy = Math.sin(ang) * spd;
+            } else {
+              // No enemies: reflect straight upward fast
+              nvx = b.vx * -0.5;
+              nvy = -35;
+            }
+            enemyBullets.splice(bi, 1);
+            playerBullets.push({ x: b.x, y: b.y, vx: nvx, vy: nvy,
+              w: 60, h: 60, type: 'deflected', color: '#00ffee',
+              owner: players.indexOf(p), dmg: DEFLECT_DMG });
+            p.deflectCooldown = 0; // instantly refresh cooldown on success!
+            p.deflectHit = 10; // flash effect
+            playSfx('deflect');
+          spawnHitEffect(b.x, b.y);
+        }
+      });
+    }
+
+    function drawDeflectRings() {
+      players.forEach(p => {
+        if (p.dead) return;
+        // Cooldown arc under the ship (always visible when not ready)
+        if (p.deflectCooldown > 0) {
+          const frac = 1 - p.deflectCooldown / DEFLECT_COOLDOWN;
+          ctx.save();
+          ctx.strokeStyle = p.deflectWindow > 0 ? '#ffffff' : p.color;
+          ctx.globalAlpha = 0.35;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y + p.h / 2 + 10, 10, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Active parry window ring
+        if (p.deflectWindow > 0) {
+          const alpha = p.deflectWindow / DEFLECT_WINDOW;
+          ctx.save();
+          ctx.strokeStyle = '#00ffee';
+          ctx.shadowColor  = '#00ffee';
+          ctx.shadowBlur   = 18;
+          ctx.globalAlpha  = alpha * 0.8;
+          ctx.lineWidth    = 3;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, DEFLECT_RADIUS, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Expanding ripple ring
+        if (p.deflectRingR > 0) {
+          const alpha = Math.max(0, 1 - p.deflectRingR / 80);
+          ctx.save();
+          ctx.globalAlpha  = alpha * (p.deflectHit > 0 ? 1.0 : 0.55);
+          ctx.strokeStyle  = p.deflectHit > 0 ? '#ffffff' : '#00ffee';
+          ctx.shadowColor  = p.deflectHit > 0 ? '#ffffff' : '#00ffee';
+          ctx.shadowBlur   = 12;
+          ctx.lineWidth    = p.deflectHit > 0 ? 3 : 1.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.deflectRingR, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // "DEFLECT READY" label when cooldown just hit 0
+        if (p.deflectCooldown === 0 && !p.deflectWindow) {
+          ctx.save();
+          ctx.globalAlpha = 0.5 + 0.5 * Math.sin(frameCount * 0.12);
+          ctx.fillStyle   = p.color;
+          ctx.font        = "bold 8px 'Orbitron', monospace";
+          ctx.textAlign   = 'center';
+          ctx.fillText('DEFLECT READY', p.x, p.y + p.h / 2 + 24);
+          ctx.restore();
+        }
+      });
+    }
+
     function drawPlayer() {
       players.forEach((p, i) => {
         if (p.dead && p.deathAnim >= 115) return;
@@ -2255,6 +2525,35 @@
 
       const flashHit = e.hitFlash > 0;
       if (flashHit) { ctx.shadowColor = '#fff'; ctx.shadowBlur = 20; }
+
+      // ── Laser bolt charge warning ──────────────────────────────────
+      if (e.pendingLaserBolt) {
+        const plb = e.pendingLaserBolt;
+        const frac = 1 - plb.timer / 45; // 0→1 as charge progresses
+        const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.6); // fast flicker
+        const ringR = 20 + frac * 18; // ring grows as it charges
+        // Pulsing danger ring around enemy
+        ctx.save();
+        ctx.shadowColor = '#cc00ff';
+        ctx.shadowBlur = 16 + pulse * 12;
+        ctx.strokeStyle = `rgba(${Math.round(180 + frac * 75)},0,255,${0.5 + frac * 0.5})`;
+        ctx.lineWidth = 2 + frac * 2;
+        ctx.beginPath(); ctx.arc(0, 0, ringR / (e.type === 'boss4' ? 1.5 : e.type === 'boss3' ? 1.2 : e.type === 'boss2' ? 1.1 : 1), 0, Math.PI * 2); ctx.stroke();
+        // Direction tracer — a dashed line showing where the bolt will go
+        const spd = Math.hypot(plb.vx, plb.vy) || 1;
+        const dnx = plb.vx / spd, dny = plb.vy / spd;
+        const tracerLen = 60 + frac * 60;
+        ctx.setLineDash([6, 5]);
+        ctx.strokeStyle = `rgba(220,80,255,${0.3 + frac * 0.5})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(dnx * 18, dny * 18);
+        ctx.lineTo(dnx * tracerLen, dny * tracerLen);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
 
       const hw = isBoss ? (e.type === 'boss3' ? 80 : e.type === 'boss2' ? 74 : 70) : (e.type === 'tank' ? 46 : e.type === 'medium' ? 42 : 34);
       const hh = isBoss ? (e.type === 'boss3' ? 70 : e.type === 'boss2' ? 60 : 50) : (e.type === 'tank' ? 44 : e.type === 'medium' ? 38 : 28);
@@ -2662,7 +2961,8 @@
         e.timer++;
         if (e.hitFlash > 0) e.hitFlash--;
 
-        // Movement patterns
+        // Movement patterns — freeze while charging a laser_bolt
+        if (!e.pendingLaserBolt) {
         if (e.type === 'small') {
           // Glide down to upper half then drift side to side like other shooters
           if (e.y < 160) { e.y += e.speed; }
@@ -2801,10 +3101,33 @@
               playSfx('enemyShoot');
             }
           }
-        }
+          }
+        } // end movement freeze guard
 
         // Remove if off-screen (small only — others handled above)
         if (e.type === 'small' && e.y > H + 40) { enemies.splice(i, 1); continue; }
+
+        // Pending laser_bolt charge: tick down then fire instantly
+        if (e.pendingLaserBolt) {
+          e.pendingLaserBolt.timer--;
+          // Lock on to player while charging
+          const target = players.filter(p=>!p.dead).sort((a,b) => Math.hypot(a.x-e.x, a.y-e.y) - Math.hypot(b.x-e.x, b.y-e.y))[0] || players[0];
+          if (target) {
+            const dist = Math.hypot(target.x - e.x, target.y - e.y);
+            if (dist > 0) {
+              e.pendingLaserBolt.vx = ((target.x - e.x) / dist) * 42.0;
+              e.pendingLaserBolt.vy = ((target.y - e.y) / dist) * 42.0;
+            }
+          }
+          // Play short alert ping 15 frames before firing — cues player to deflect NOW
+          if (e.pendingLaserBolt.timer === 15) playSfx('boltCharge');
+          if (e.pendingLaserBolt.timer <= 0) {
+            const plb = e.pendingLaserBolt;
+            e.pendingLaserBolt = null;
+            spawnEnemyBullet(e.x, e.y, plb.vx, plb.vy, 'laser_bolt');
+            playSfx('boltFire');
+          }
+        }
 
         // Enemy shooting — burst then long pause
         e.shootTimer++;
@@ -2846,6 +3169,10 @@
       } else if (e.type === 'medium') {
         spawnEnemyBullet(e.x, e.y, nx * 4.0 - 0.8, ny * 4.0, 'normal');
         spawnEnemyBullet(e.x, e.y, nx * 4.0 + 0.8, ny * 4.0, 'normal');
+        // 15% chance: queue a charged laser_bolt
+        if (Math.random() < 0.15 && !e.pendingLaserBolt) {
+          e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
+        }
 
       } else if (e.type === 'speeder') {
         spawnEnemyBullet(e.x, e.y, nx * 5.5, ny * 5.5, 'normal');
@@ -2857,7 +3184,11 @@
         }
 
       } else if (e.type === 'sniper') {
-        spawnEnemyBullet(e.x, e.y, nx * 9.0, ny * 9.0, 'normal');
+        // Snipers charge then fire — queue a pending laser_bolt
+        if (!e.pendingLaserBolt) {
+          e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
+        }
+        return; // don't call playSfx('enemyShoot') yet
 
       } else if (e.type === 'boss') {
         const p = Math.floor(e.timer / 180) % 3;
@@ -2872,7 +3203,11 @@
             spawnEnemyBullet(e.x, e.y, Math.cos(ang) * 4.0, Math.sin(ang) * 4.0, 'normal');
           }
         } else {
+          // Boss phase 2: big aimed shot now + charged laser_bolt after warning
           spawnEnemyBullet(e.x, e.y, nx * 6.5, ny * 6.5, 'big');
+          if (!e.pendingLaserBolt) {
+            e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
+          }
         }
 
       } else if (e.type === 'boss2') {
@@ -2888,9 +3223,13 @@
             spawnEnemyBullet(e.x, e.y, Math.cos(ang) * 6.5, Math.sin(ang) * 6.5, 'normal');
           }
         } else {
-          for (let a = -2; a <= 2; a++) { // 5 big bullets instead of 3
+          // Boss2 phase 2: 5-way heavy spread now + charged laser_bolt after warning
+          for (let a = -2; a <= 2; a++) {
             const ang = Math.atan2(ny, nx) + a * 0.20;
             spawnEnemyBullet(e.x, e.y, Math.cos(ang) * 4.5, Math.sin(ang) * 4.5, 'big');
+          }
+          if (!e.pendingLaserBolt) {
+            e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
           }
         }
 
@@ -3189,15 +3528,100 @@
           }
         }
       }
+      // Deflected bolt cleaves through enemy bullets in its path (Swept beam collision)
+      for (let di = playerBullets.length - 1; di >= 0; di--) {
+        const d = playerBullets[di];
+        if (d.type !== 'deflected') continue;
+        for (let bi = enemyBullets.length - 1; bi >= 0; bi--) {
+          const b = enemyBullets[bi];
+          let hit = false;
+          if (d.prevX !== undefined) {
+            const sdx = d.x - d.prevX, sdy = d.y - d.prevY;
+            const fx = d.prevX - b.x, fy = d.prevY - b.y;
+            const a = sdx*sdx + sdy*sdy;
+            const bk = 2*(fx*sdx + fy*sdy);
+            const r = d.w/2 + 6; // beam radius + small bullet radius
+            const c = fx*fx + fy*fy - r*r;
+            const disc = bk*bk - 4*a*c;
+            if (disc >= 0 && a > 0) {
+              const t = (-bk - Math.sqrt(disc)) / (2*a);
+              hit = (t >= 0 && t <= 1);
+            }
+          } else {
+            hit = Math.hypot(d.x - b.x, d.y - b.y) < d.w/2 + 6;
+          }
+          if (hit) {
+            enemyBullets.splice(bi, 1);
+            spawnHitEffect(b.x, b.y); // small spark
+          }
+        }
+      }
+
+      // Deflected bolt PIERCES through all enemies (doesn't stop on contact)
+      for (let bi = playerBullets.length - 1; bi >= 0; bi--) {
+        const b = playerBullets[bi];
+        if (b.type !== 'deflected') continue;
+        if (!b.hitEnemies) b.hitEnemies = new Set();
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const e = enemies[ei];
+          if (e.dead) continue;
+          if (b.hitEnemies.has(e)) continue; // hit each enemy exactly once per beam
+          let hit = false;
+          if (b.prevX !== undefined) {
+            const sdx = b.x - b.prevX, sdy = b.y - b.prevY;
+            const fx = b.prevX - e.x, fy = b.prevY - e.y;
+            const a = sdx*sdx + sdy*sdy;
+            const bk = 2*(fx*sdx + fy*sdy);
+            const r = e.w/2 + b.w/2;
+            const c = fx*fx + fy*fy - r*r;
+            const disc = bk*bk - 4*a*c;
+            if (disc >= 0 && a > 0) {
+              const t = (-bk - Math.sqrt(disc)) / (2*a);
+              hit = (t >= 0 && t <= 1);
+            }
+          } else {
+            hit = Math.abs(b.x - e.x) < e.w / 2 + b.w / 2 && Math.abs(b.y - e.y) < e.h / 2 + b.h / 2;
+          }
+          if (hit) {
+            b.hitEnemies.add(e);
+            // PIERCE: one-shot regular enemies; deal DEFLECT_DMG to bosses
+            const dmg = e.type.startsWith('boss') ? (b.dmg || DEFLECT_DMG) : e.hp;
+            e.hp -= dmg;
+            e.hitFlash = 8;
+            e._lastHitOwner = b.owner;
+            spawnHitEffect(b.x, b.y);
+            playSfx('enemyHit');
+            if (e.type.startsWith('boss') && e.hp > 0) onBossHit(e);
+          }
+        }
+      }
+
 
       // Enemy bullets vs player
       for (let bi = enemyBullets.length - 1; bi >= 0; bi--) {
         const b = enemyBullets[bi];
         const pr = 16;
-        const dmg = b.type === 'big' ? 2 : 1; // Red bullets deal 2 damage
+        const dmg = (b.type === 'big' || b.type === 'laser_bolt') ? 2 : 1;
         for (const p of players) {
           if (p.dead || p.invincible > 0) continue;
-          if (Math.abs(b.x - p.x) < pr && Math.abs(b.y - p.y) < pr) {
+          // Standard box check for normal bullets; swept segment-vs-circle for fast laser_bolt
+          let hit = false;
+          if (b.type === 'laser_bolt' && b.prevX !== undefined) {
+            // Line segment from prevPos->currPos vs player circle (r=16)
+            const sdx = b.x - b.prevX, sdy = b.y - b.prevY;
+            const fx = b.prevX - p.x, fy = b.prevY - p.y;
+            const a = sdx*sdx + sdy*sdy;
+            const bk = 2*(fx*sdx + fy*sdy);
+            const c = fx*fx + fy*fy - 16*16;
+            const disc = bk*bk - 4*a*c;
+            if (disc >= 0) {
+              const t = (-bk - Math.sqrt(disc)) / (2*a);
+              hit = (t >= 0 && t <= 1);
+            }
+          } else {
+            hit = Math.abs(b.x - p.x) < pr && Math.abs(b.y - p.y) < pr;
+          }
+          if (hit) {
             enemyBullets.splice(bi, 1);
             if (p.shields > 0) {
               p.shields = Math.max(0, p.shields - dmg);
@@ -3877,6 +4301,7 @@
         touch2DX = 0; touch2DY = 0;
         updateEnemies();
         updateBullets();
+        updateDeflect();
         updateParticles();
         updateHeartPacks();
         updateGunDrops();
@@ -4003,6 +4428,7 @@
       drawInvinciblePacks();
       drawParticles();
       drawShield();
+      drawDeflectRings();
       drawPlayer();
 
       if (didZoom) {
