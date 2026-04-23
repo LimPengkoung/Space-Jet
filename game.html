@@ -3334,6 +3334,10 @@
         if (allDead4) {
           spawnEnemyBullet(e.x, e.y, nx * 3.5, ny * 3.5, 'normal');
         }
+        // Hull periodically fires a devastating laser bolt to keep players on their toes
+        if (!e.pendingLaserBolt && !laserActive && Math.random() < 0.25) {
+          e.pendingLaserBolt = { timer: 50, vx: nx * 42.0, vy: ny * 42.0 };
+        }
         // (Parts alive: they fire independently in the update loop above)
 
       } else if (e.type === 'boss3') {
@@ -3347,6 +3351,9 @@
           const offsets = [[-46, 22], [30, 22], [-22, 4], [10, 4]];
           for (const [ox, oy] of offsets) {
             spawnEnemyBullet(e.x + ox, e.y + oy, nx * 6.5, ny * 6.5, 'big');
+          }
+          if (!e.pendingLaserBolt && !laserActive) {
+            e.pendingLaserBolt = { timer: 45, vx: nx * 42.0, vy: ny * 42.0 };
           }
         } else if (p === 2) {
           for (let a = 0; a < 6; a++) { // Double the spin rays
