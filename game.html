@@ -1036,10 +1036,10 @@
       playerBullets.push({ x, y, vx, vy, w: 4, h: 14, type, color, owner });
     }
 
-    function spawnEnemyBullet(x, y, vx, vy, type = 'normal') {
+    function spawnEnemyBullet(x, y, vx, vy, type = 'normal', owner = null) {
       // laser_bolt: stored radius=3 but drawn as a long needle
       const r = type === 'big' ? 6 : type === 'laser_bolt' ? 3 : 4;
-      enemyBullets.push({ x, y, vx, vy, r, type });
+      enemyBullets.push({ x, y, vx, vy, r, type, owner });
     }
 
     function updateBullets() {
@@ -2182,12 +2182,17 @@
           // Only laser_bolt bullets can be deflected
           if (b.type !== 'laser_bolt') continue;
           if (Math.hypot(b.x - p.x, b.y - p.y) >= DEFLECT_RADIUS) continue;
-            // Reverse bullet direction toward nearest enemy
-            let nearest = null, nearDist = Infinity;
-            for (const e of enemies) {
-              if (e.dead) continue;
-              const d = Math.hypot(e.x - b.x, e.y - b.y);
-              if (d < nearDist) { nearDist = d; nearest = e; }
+            // Reverse bullet direction toward the enemy that shot it, or nearest if dead
+            let nearest = null;
+            if (b.owner && !b.owner.dead && enemies.includes(b.owner)) {
+              nearest = b.owner;
+            } else {
+              let nearDist = Infinity;
+              for (const e of enemies) {
+                if (e.dead) continue;
+                const d = Math.hypot(e.x - b.x, e.y - b.y);
+                if (d < nearDist) { nearDist = d; nearest = e; }
+              }
             }
             let nvx, nvy;
             if (nearest) {
@@ -3153,7 +3158,7 @@
           if (e.pendingLaserBolt.timer <= 0) {
             const plb = e.pendingLaserBolt;
             e.pendingLaserBolt = null;
-            spawnEnemyBullet(e.x, e.y, plb.vx, plb.vy, 'laser_bolt');
+            spawnEnemyBullet(e.x, e.y, plb.vx, plb.vy, 'laser_bolt', e);
             playSfx('boltFire');
           }
         }
