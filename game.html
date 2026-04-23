@@ -3631,17 +3631,7 @@
           const b = enemyBullets[bi];
           let hit = false;
           if (d.prevX !== undefined) {
-            const sdx = d.x - d.prevX, sdy = d.y - d.prevY;
-            const fx = d.prevX - b.x, fy = d.prevY - b.y;
-            const a = sdx*sdx + sdy*sdy;
-            const bk = 2*(fx*sdx + fy*sdy);
-            const r = d.w/2 + 6; // beam radius + small bullet radius
-            const c = fx*fx + fy*fy - r*r;
-            const disc = bk*bk - 4*a*c;
-            if (disc >= 0 && a > 0) {
-              const t = (-bk - Math.sqrt(disc)) / (2*a);
-              hit = (t >= 0 && t <= 1);
-            }
+            hit = distToSegment(b.x, b.y, d.prevX, d.prevY, d.x, d.y) < (d.w / 2 + 6);
           } else {
             hit = Math.hypot(d.x - b.x, d.y - b.y) < d.w/2 + 6;
           }
@@ -3663,17 +3653,8 @@
           if (b.hitEnemies.has(e)) continue; // hit each enemy exactly once per beam
           let hit = false;
           if (b.prevX !== undefined) {
-            const sdx = b.x - b.prevX, sdy = b.y - b.prevY;
-            const fx = b.prevX - e.x, fy = b.prevY - e.y;
-            const a = sdx*sdx + sdy*sdy;
-            const bk = 2*(fx*sdx + fy*sdy);
-            const r = e.w/2 + b.w/2;
-            const c = fx*fx + fy*fy - r*r;
-            const disc = bk*bk - 4*a*c;
-            if (disc >= 0 && a > 0) {
-              const t = (-bk - Math.sqrt(disc)) / (2*a);
-              hit = (t >= 0 && t <= 1);
-            }
+            const r = Math.max(e.w, e.h) / 2 + b.w / 2;
+            hit = distToSegment(e.x, e.y, b.prevX, b.prevY, b.x, b.y) < r;
           } else {
             hit = Math.abs(b.x - e.x) < e.w / 2 + b.w / 2 && Math.abs(b.y - e.y) < e.h / 2 + b.h / 2;
           }
