@@ -1217,10 +1217,11 @@
           ctx.shadowColor = b.color;
           ctx.shadowBlur  = 35;
           const g = ctx.createLinearGradient(-tail, 0, len, 0);
-          g.addColorStop(0,   'rgba(0,255,238,0)');
-          g.addColorStop(0.2, 'rgba(0,255,238,0.9)');
+          const rgb = b.owner === 1 ? '255,204,0' : '0,255,238';
+          g.addColorStop(0,   `rgba(${rgb},0)`);
+          g.addColorStop(0.2, `rgba(${rgb},0.9)`);
           g.addColorStop(0.8, '#ffffff');
-          g.addColorStop(1,   'rgba(0,255,238,0)');
+          g.addColorStop(1,   `rgba(${rgb},0)`);
           ctx.fillStyle = g;
           ctx.beginPath();
           // Draw the main thick beam body
@@ -1257,9 +1258,9 @@
         ctx.save();
         const flutter = Math.random() * 4 - 2;
         const w = 12 + flutter;
-        ctx.shadowColor = '#ff8800';
+        ctx.shadowColor = p.id === 2 ? '#ff8800' : '#0088ff';
         ctx.shadowBlur = 15 + Math.random() * 10;
-        ctx.fillStyle = '#ffcc00';
+        ctx.fillStyle = p.id === 2 ? '#ffcc00' : '#00ffee';
         ctx.fillRect(p.x - w / 2, endY, w, startY - endY);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(p.x - (w - 6) / 2, endY, w - 6, startY - endY);
@@ -2266,7 +2267,7 @@
             }
             enemyBullets.splice(bi, 1);
             playerBullets.push({ x: b.x, y: b.y, vx: nvx, vy: nvy,
-              w: 60, h: 60, type: 'deflected', color: '#00ffee',
+              w: 60, h: 60, type: 'deflected', color: p.id === 2 ? '#ffcc00' : '#00ffee',
               owner: players.indexOf(p), dmg: DEFLECT_DMG });
             p.deflectCooldown = 0; // instantly refresh cooldown on success!
             p.deflectHit = 10; // flash effect
@@ -2295,8 +2296,9 @@
         if (p.deflectWindow > 0) {
           const alpha = p.deflectWindow / DEFLECT_WINDOW;
           ctx.save();
-          ctx.strokeStyle = '#00ffee';
-          ctx.shadowColor  = '#00ffee';
+          const ringColor = p.id === 2 ? '#ffcc00' : '#00ffee';
+          ctx.strokeStyle = ringColor;
+          ctx.shadowColor  = ringColor;
           ctx.shadowBlur   = 18;
           ctx.globalAlpha  = alpha * 0.8;
           ctx.lineWidth    = 3;
@@ -2310,8 +2312,9 @@
           const alpha = Math.max(0, 1 - p.deflectRingR / 80);
           ctx.save();
           ctx.globalAlpha  = alpha * (p.deflectHit > 0 ? 1.0 : 0.55);
-          ctx.strokeStyle  = p.deflectHit > 0 ? '#ffffff' : '#00ffee';
-          ctx.shadowColor  = p.deflectHit > 0 ? '#ffffff' : '#00ffee';
+          const ringColor = p.id === 2 ? '#ffcc00' : '#00ffee';
+          ctx.strokeStyle  = p.deflectHit > 0 ? '#ffffff' : ringColor;
+          ctx.shadowColor  = p.deflectHit > 0 ? '#ffffff' : ringColor;
           ctx.shadowBlur   = 12;
           ctx.lineWidth    = p.deflectHit > 0 ? 3 : 1.5;
           ctx.beginPath();
