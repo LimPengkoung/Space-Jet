@@ -4204,9 +4204,10 @@
             for (let i = 0; i < st.p.length && i < players.length; i++) {
                 const src = st.p[i];
                 if (!isHost && i === 1 && !players[i].dead) {
-                    // Soft-correct P2: pull 35% toward host position per tick.
-                    const px = players[i].x + (src.x - players[i].x) * 0.35;
-                    const py = players[i].y + (src.y - players[i].y) * 0.35;
+                    // Soft-correct P2: pull 55% toward host position per tick.
+                    // Higher lerp = faster correction = less rubberbanding lag feel.
+                    const px = players[i].x + (src.x - players[i].x) * 0.55;
+                    const py = players[i].y + (src.y - players[i].y) * 0.55;
                     Object.assign(players[i], src);
                     players[i].x = px; players[i].y = py;
                 } else {
@@ -4228,9 +4229,9 @@
             if (e._t !== undefined) { e.type = e._t; e.pattern = e._pat; }
             const prev = _prevEnemyData[i];
             if (prev && !e.dead) {
-                // Divide by 2 because host sends every 2 frames
-                e._evx = (e.x - prev.x) / 2;
-                e._evy = (e.y - prev.y) / 2;
+                // Host now sends every frame, so velocity = delta / 1
+                e._evx = (e.x - prev.x);
+                e._evy = (e.y - prev.y);
             } else {
                 e._evx = 0; e._evy = 0;
             }
@@ -4396,43 +4397,41 @@
         collide();
         
         if (isOnline && peerConn) {
-           if (frameCount % 2 === 0) {  // 30 snapshots/sec (was 20)
-               try {
-                   const slimEnemies = enemies.map(e => ({
-                     _t: e.type, _pat: e.pattern,
-                     x: e.x, y: e.y, hp: e.hp, timer: e.timer, phase: e.phase,
-                     shootTimer: e.shootTimer, burstCount: e.burstCount,
-                     burstCooldown: e.burstCooldown, dead: e.dead,
-                     deathAnim: e.deathAnim || 0, hitFlash: e.hitFlash || 0,
-                     laserCd: e.laserCd, burstMode: e.burstMode,
-                     w: e.w, h: e.h, maxHp: e.maxHp, speed: e.speed, speed2: e.speed2,
-                     shootInterval: e.shootInterval, burstMax: e.burstMax,
-                   }));
-                   const slimPB = playerBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, color: b.color, w: b.w, h: b.h }));
-                   const slimEB = enemyBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, r: b.r }));
-                   const slimPlayers = players.map(p => ({
-                     x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, shields: p.shields,
-                     gunLevel: p.gunLevel, baseGunLevel: p.baseGunLevel, gunTimer: p.gunTimer,
-                     shootInterval: p.shootInterval, invincible: p.invincible, thrustAnim: p.thrustAnim,
-                     dead: p.dead, deathAnim: p.deathAnim || 0, laserTargetY: p.laserTargetY || 0,
-                     shield: p.shield, shieldAnim: p.shieldAnim || 0,
-                   }));
-                   hostSeq++;
-                   peerConn.send({
-                      t: 's',
-                      seq: hostSeq,  // Sequence number for out-of-order rejection
-                      p: {
-                         p: slimPlayers, e: slimEnemies, pb: slimPB, eb: slimEB,
-                         el: enemyLasers, gd: gunDrops, hp: heartPacks,
-                         sd: shieldDrops, ip: invinciblePacks,
-                         sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode,
-                               p1s: players[0].score, p2s: players[1].score, p1k: players[0].kills, p2k: players[1].kills },
-                         ne: netEvents
-                      }
-                   });
-                   if (netEvents.length > 0) netEvents = [];
-               } catch(err) { console.error('Host send error:', err); }
-           }
+           try {
+               const slimEnemies = enemies.map(e => ({
+                 _t: e.type, _pat: e.pattern,
+                 x: e.x, y: e.y, hp: e.hp, timer: e.timer, phase: e.phase,
+                 shootTimer: e.shootTimer, burstCount: e.burstCount,
+                 burstCooldown: e.burstCooldown, dead: e.dead,
+                 deathAnim: e.deathAnim || 0, hitFlash: e.hitFlash || 0,
+                 laserCd: e.laserCd, burstMode: e.burstMode,
+                 w: e.w, h: e.h, maxHp: e.maxHp, speed: e.speed, speed2: e.speed2,
+                 shootInterval: e.shootInterval, burstMax: e.burstMax,
+               }));
+               const slimPB = playerBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, color: b.color, w: b.w, h: b.h }));
+               const slimEB = enemyBullets.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, type: b.type, r: b.r }));
+               const slimPlayers = players.map(p => ({
+                 x: p.x, y: p.y, hp: p.hp, maxHp: p.maxHp, shields: p.shields,
+                 gunLevel: p.gunLevel, baseGunLevel: p.baseGunLevel, gunTimer: p.gunTimer,
+                 shootInterval: p.shootInterval, invincible: p.invincible, thrustAnim: p.thrustAnim,
+                 dead: p.dead, deathAnim: p.deathAnim || 0, laserTargetY: p.laserTargetY || 0,
+                 shield: p.shield, shieldAnim: p.shieldAnim || 0,
+               }));
+               hostSeq++;
+               peerConn.send({
+                  t: 's',
+                  seq: hostSeq,  // Sequence number for out-of-order rejection
+                  p: {
+                     p: slimPlayers, e: slimEnemies, pb: slimPB, eb: slimEB,
+                     el: enemyLasers, gd: gunDrops, hp: heartPacks,
+                     sd: shieldDrops, ip: invinciblePacks,
+                     sc: { s: score, k: kills, w: wave, wt: waveTimer, c: currentMapTheme, h1: players[0].hp, h2: players[1].hp, bm: currentMusicMode,
+                           p1s: players[0].score, p2s: players[1].score, p1k: players[0].kills, p2k: players[1].kills },
+                     ne: netEvents
+                  }
+               });
+               if (netEvents.length > 0) netEvents = [];
+           } catch(err) { console.error('Host send error:', err); }
         }
       } else {
         // ══════════════════════════════════════════════════════════════
@@ -4483,9 +4482,9 @@
         }
         updateParticles();
 
-        // 5. SEND INPUTS to host every 2 frames (30/sec)
+        // 5. SEND INPUTS to host every frame (60/sec) — keeps host inputs fresh and cuts latency
         //    NOTE: send touchDX/DY BEFORE resetting them so the host receives the actual movement.
-        if (peerConn && frameCount % 2 === 0) {
+        if (peerConn) {
             try {
                 if (peerConn.open !== false) {
                    // Send only truthy key entries — avoids bloat and serialization edge cases
