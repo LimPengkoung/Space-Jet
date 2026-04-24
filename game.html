@@ -599,6 +599,7 @@
     let hostSeq = 0;       // Host increments on every snapshot send
     let clientLastSeq = 0; // Client tracks highest seq received to discard old packets
     let _prevEnemyData = []; // Enemy positions from last packet, for velocity estimation
+    let _netStateAppliedThisFrame = false; // True when applyNetworkState ran this frame (skip bullet extrapolation)
     
     function cancelOnline() {
        if (peer) { peer.destroy(); peer = null; }
@@ -689,6 +690,17 @@
           });
           peerConn.on('error', err => {
               document.getElementById('lobbyStatus').textContent = 'Connection Error: ' + err;
+          });
+          peerConn.on('close', () => {
+              if (gameRunning) {
+                  gameRunning = false;
+                  stopMusic();
+                  const overlay = document.getElementById('overlay');
+                  overlay.classList.remove('hidden');
+                  document.getElementById('titleLine1').textContent = 'HOST';
+                  document.getElementById('titleLine2').textContent = 'LEFT';
+                  document.getElementById('titleSub').textContent = 'Connection lost';
+              }
           });
        });
        peer.on('error', err => {
@@ -4195,6 +4207,9 @@
     const BOSS_REINFORCE_INTERVAL = 300; // send reinforcements every 5 seconds
 
     function applyNetworkState(st) {
+        // Guard: reject obviously malformed/partial packets to prevent crashes
+        if (!st || !st.p || !st.e || !st.sc) return;
+
         // ── Player reconciliation ──────────────────────────────────────────
         // Player 0 (host / P1): snap directly to authoritative state.
         // Player 1 (client / P2): use client-side prediction reconciliation —
@@ -4254,7 +4269,9 @@
         if (st.sc.c !== currentMapTheme) setMapTheme(st.sc.c);
         if (st.sc.bm !== currentMusicMode) startMusic(st.sc.bm);
         
-        for (const ev of st.ne) {
+        // Cap netEvents to 10 per packet to prevent sound/explosion storms on burst delivery
+        const eventsToProcess = Array.isArray(st.ne) ? st.ne.slice(0, 10) : [];
+        for (const ev of eventsToProcess) {
             if (ev.t === 'sfx') playSfx(ev.n, true);
             else if (ev.t === 'exp') spawnExplosion(ev.x, ev.y, ev.c, ev.b, true);
             else if (ev.t === 'ann') showWaveAnnounce(ev.m, true);
@@ -4269,6 +4286,7 @@
 
         // Signal that at least one full state has been received — unblock client rendering
         networkStateReady = true;
+        _netStateAppliedThisFrame = true;
     }
 
     function gameLoop(timestamp) {
@@ -4461,10 +4479,16 @@
           players[1].thrustAnim = (players[1].thrustAnim || 0) + 1;
         }
 
-        // 2. BULLET EXTRAPOLATION: bullets travel in straight lines,
-        //    so advancing by vx/vy each frame is perfectly accurate.
-        for (const b of playerBullets) { b.x += b.vx || 0; b.y += b.vy || 0; }
-        for (const b of enemyBullets)  { b.x += b.vx || 0; b.y += b.vy || 0; }
+        // 2. BULLET EXTRAPOLATION: bullets travel in straight lines.
+        //    Since host now sends every frame, the authoritative positions arrive
+        //    fast enough — only extrapolate on frames where NO packet arrived
+        //    (i.e. the syncArray hasn't just reset the arrays this frame).
+        //    We use a flag set by applyNetworkState to skip redundant extrapolation.
+        if (!_netStateAppliedThisFrame) {
+          for (const b of playerBullets) { b.x += b.vx || 0; b.y += b.vy || 0; }
+          for (const b of enemyBullets)  { b.x += b.vx || 0; b.y += b.vy || 0; }
+        }
+        _netStateAppliedThisFrame = false;
 
         // 3. ENEMY POSITION EXTRAPOLATION: glide enemies toward where
         //    they are heading using velocity estimated from last two packets.
